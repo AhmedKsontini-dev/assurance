@@ -18,4 +18,8 @@ router
   .put(authMiddleware.checkPermission('edit'), clientController.updateClient)
   .delete(authMiddleware.checkPermission('delete'), clientController.deleteClient);
 
+router.post('/:id/renew', authMiddleware.checkPermission('edit'), clientController.renewClientSubscription);
+router.get('/:id/renewals', clientController.getClientRenewals);
+router.get('/renew-stats', authMiddleware.checkPermission('admin'), clientController.getRenewalStats);
+
 module.exports = router;

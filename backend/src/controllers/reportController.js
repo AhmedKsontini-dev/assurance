@@ -78,23 +78,47 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
     );
     if (userRows.length === 0) return res.status(404).json({ status: 'fail', message: 'Employee not found' });
 
+    // Helper to get net caisse balance for a given SQL condition
+    const getCaisseNet = async (condition, params = []) => {
+      const query = `
+        SELECT 
+          COALESCE(SUM(CASE WHEN type = 'INCOME' THEN montant ELSE 0 END), 0) -
+          COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN montant ELSE 0 END), 0) as net
+        FROM caisse_entries 
+        WHERE user_id = ? AND ${condition}
+      `;
+      const [rows] = await db.query(query, [userId, ...params]);
+      return parseFloat(rows[0].net || 0);
+    };
+
     // 2. Financial Summary
-    const [todayStats] = await db.query(
+    // Today
+    const [todayClientStats] = await db.query(
       'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as amount FROM clients WHERE created_by = ? AND DATE(created_at) = CURDATE()',
       [userId]
     );
-    const [monthStats] = await db.query(
-      'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as amount FROM clients WHERE created_by = ? AND MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE())',
-      [userId]
-    );
-    const [weekStats] = await db.query(
+    const todayCaisseNet = await getCaisseNet('DATE(date_operation) = CURDATE()');
+    
+    // Week
+    const [weekClientStats] = await db.query(
       'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as amount FROM clients WHERE created_by = ? AND YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)',
       [userId]
     );
-    const [overallStats] = await db.query(
+    const weekCaisseNet = await getCaisseNet('YEARWEEK(date_operation, 1) = YEARWEEK(CURDATE(), 1)');
+
+    // Month
+    const [monthClientStats] = await db.query(
+      'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as amount FROM clients WHERE created_by = ? AND MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE())',
+      [userId]
+    );
+    const monthCaisseNet = await getCaisseNet('MONTH(date_operation) = MONTH(CURDATE()) AND YEAR(date_operation) = YEAR(CURDATE())');
+
+    // Overall
+    const [overallClientStats] = await db.query(
       'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as amount FROM clients WHERE created_by = ?',
       [userId]
     );
+    const overallCaisseNet = await getCaisseNet('1=1');
 
     // Custom Date Stats
     let customDateStats = null;
@@ -103,7 +127,12 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
         'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as amount FROM clients WHERE created_by = ? AND DATE(created_at) = ?',
         [userId, statsDate]
       );
-      customDateStats = customRows[0];
+      const customCaisseNet = await getCaisseNet('DATE(date_operation) = ?', [statsDate]);
+      
+      customDateStats = {
+        count: customRows[0].count,
+        amount: parseFloat(customRows[0].amount) + customCaisseNet
+      };
     }
 
     // 3. Clients List (Filtered by statsDate if provided)
@@ -131,10 +160,22 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
       data: {
         employee: userRows[0],
         financials: {
-          today: todayStats[0],
-          week: weekStats[0],
-          month: monthStats[0],
-          overall: overallStats[0],
+          today: {
+            count: todayClientStats[0].count,
+            amount: parseFloat(todayClientStats[0].amount) + todayCaisseNet
+          },
+          week: {
+            count: weekClientStats[0].count,
+            amount: parseFloat(weekClientStats[0].amount) + weekCaisseNet
+          },
+          month: {
+            count: monthClientStats[0].count,
+            amount: parseFloat(monthClientStats[0].amount) + monthCaisseNet
+          },
+          overall: {
+            count: overallClientStats[0].count,
+            amount: parseFloat(overallClientStats[0].amount) + overallCaisseNet
+          },
           custom: customDateStats
         },
         clients,

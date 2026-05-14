@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { Calendar, XCircle } from 'lucide-react';
+import { Calendar, XCircle, Bell, Clock, ChevronRight } from 'lucide-react';
+import CaisseSection from '../components/CaisseSection';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -10,11 +11,13 @@ const Dashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statsDate, setStatsDate] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
   const clientsPerPage = 10;
 
   useEffect(() => {
     if (user && user.id) {
       fetchAnalytics();
+      fetchUpcomingEvents();
     }
   }, [user, statsDate]);
 
@@ -28,6 +31,30 @@ const Dashboard = () => {
     } catch (err) {
       console.error('Failed to fetch analytics', err);
       setLoading(false);
+    }
+  };
+
+  const fetchUpcomingEvents = async () => {
+    try {
+      const res = await api.get('/events');
+      const allEvents = res.data.data;
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const threeDaysLater = new Date(today);
+      threeDaysLater.setDate(today.getDate() + 3);
+
+      const filtered = allEvents.filter(event => {
+        const eventDate = new Date(event.event_date);
+        eventDate.setHours(0, 0, 0, 0);
+        // Show events from today up to 3 days in the future
+        return eventDate >= today && eventDate <= threeDaysLater;
+      }).sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
+
+      setUpcomingEvents(filtered);
+    } catch (err) {
+      console.error('Failed to fetch events', err);
     }
   };
 
@@ -104,6 +131,80 @@ const Dashboard = () => {
           )}
         </div>
       </div>
+
+      {/* Reminders Banner */}
+      {upcomingEvents.length > 0 && (
+        <div className="reminders-banner" style={{
+          background: 'linear-gradient(135deg, #fff 0%, #fff5f2 100%)',
+          borderRadius: '16px',
+          padding: '20px',
+          marginBottom: '30px',
+          borderLeft: '5px solid #ec5b32',
+          boxShadow: '0 10px 25px -5px rgba(236, 91, 50, 0.1)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '15px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ background: '#ec5b32', padding: '8px', borderRadius: '10px' }}>
+              <Bell size={20} color="white" />
+            </div>
+            <h2 style={{ fontSize: '1.2rem', margin: 0, color: '#1e293b' }}>Rappels de votre planning</h2>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '15px' }}>
+            {upcomingEvents.map(event => {
+              const isToday = new Date(event.event_date).toLocaleDateString('en-CA') === new Date().toLocaleDateString('en-CA');
+              return (
+                <div key={event.id} style={{
+                  background: 'white',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  border: '1px solid #f1f5f9',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  transition: 'transform 0.2s',
+                  cursor: 'default'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ 
+                      width: '4px', 
+                      height: '35px', 
+                      background: event.color || '#ec5b32', 
+                      borderRadius: '2px' 
+                    }}></div>
+                    <div>
+                      <p style={{ margin: 0, fontWeight: '600', color: '#334155', fontSize: '0.95rem' }}>{event.title}</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                        <span style={{ 
+                          fontSize: '0.75rem', 
+                          padding: '2px 8px', 
+                          borderRadius: '12px',
+                          background: isToday ? '#fee2e2' : '#f1f5f9',
+                          color: isToday ? '#ef4444' : '#64748b',
+                          fontWeight: '600'
+                        }}>
+                          {isToday ? "Aujourd'hui" : new Date(event.event_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                        </span>
+                        {event.start_time && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#94a3b8', fontSize: '0.75rem' }}>
+                            <Clock size={14} />
+                            <span>{event.start_time.substring(0, 5)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} color="#cbd5e1" />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Financial Summary */}
       <div className="stats-cards" style={{ gridTemplateColumns: `repeat(${data.financials.custom ? 5 : 4}, 1fr)` }}>
@@ -208,6 +309,9 @@ const Dashboard = () => {
           </section>
         </div>
       </div>
+
+      {/* Cash Journal Section */}
+      <CaisseSection onEntryChange={fetchAnalytics} statsDate={statsDate} />
     </div>
   );
 };

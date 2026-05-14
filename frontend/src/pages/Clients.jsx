@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Eye, Edit, Trash2 } from 'lucide-react';
+import { Eye, Edit, Trash2, RefreshCw, Filter, CheckCircle, XCircle, DollarSign, Plus } from 'lucide-react';
+import RenewalModal from '../components/RenewalModal';
 
 const Clients = () => {
   const { isAdmin } = useAuth();
@@ -13,7 +14,12 @@ const Clients = () => {
   const [viewingClient, setViewingClient] = useState(null);
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [renewingClient, setRenewingClient] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [categoryStats, setCategoryStats] = useState({ total: 0, stats: [] });
   
   // Filtering & Pagination state
   const [filters, setFilters] = useState({
@@ -22,7 +28,13 @@ const Clients = () => {
     police: '',
     societaire: '',
     tel: '',
-    immatriculation: ''
+    immatriculation: '',
+    usage_vehicle: '',
+    rc: '',
+    papier: '',
+    status: '',
+    payment_status: '',
+    category: ''
   });
   const [showFilters, setShowFilters] = useState(false);
   const [grandTotal, setGrandTotal] = useState(null);
@@ -44,7 +56,11 @@ const Clients = () => {
     immatriculation: '',
     date_effet: '',
     date_expiration: '',
-    total: ''
+    total: '',
+    payment_status: 'Unpaid',
+    payment_date: '',
+    payment_method: '',
+    category: ''
   };
   const [formData, setFormData] = useState(initialFormState);
 
@@ -58,10 +74,31 @@ const Clients = () => {
       setLoading(false);
     }
   };
+  const fetchCategories = async () => {
+    try {
+      const res = await api.get('/categories');
+      setCategories(res.data.data);
+    } catch (err) {
+      console.error('Failed to fetch categories');
+    }
+  };
+
+  const fetchCategoryStats = async () => {
+    try {
+      const res = await api.get('/clients/category-stats');
+      setCategoryStats(res.data.data);
+    } catch (err) {
+      console.error('Failed to fetch category stats');
+    }
+  };
 
   useEffect(() => {
     fetchClients();
-  }, []);
+    fetchCategories();
+    if (isAdmin) {
+      fetchCategoryStats();
+    }
+  }, [isAdmin]);
 
   const handleDelete = async () => {
     if (!deleteConfirmId) return;
@@ -69,6 +106,10 @@ const Clients = () => {
       await api.delete(`/clients/${deleteConfirmId}`);
       setClients(clients.filter(c => c.id !== deleteConfirmId));
       setDeleteConfirmId(null);
+      
+      // Refresh global stats and notifications
+      if (isAdmin) fetchCategoryStats();
+      window.dispatchEvent(new Event('refresh-alerts'));
     } catch (err) {
       alert('Delete failed');
     }
@@ -93,8 +134,27 @@ const Clients = () => {
       setEditingId(null);
       setFormData(initialFormState);
       fetchClients();
+      
+      // Refresh global stats and notifications
+      if (isAdmin) fetchCategoryStats();
+      window.dispatchEvent(new Event('refresh-alerts'));
     } catch (err) {
       alert(err.response?.data?.message || 'Operation failed');
+    }
+  };
+
+  const togglePaymentStatus = async (client) => {
+    try {
+      const newStatus = client.payment_status === 'Paid' ? 'Unpaid' : 'Paid';
+      const updateData = { 
+        payment_status: newStatus,
+        payment_date: newStatus === 'Paid' ? new Date().toLocaleDateString('en-CA') : null
+      };
+      
+      await api.put(`/clients/${client.id}`, updateData);
+      setClients(clients.map(c => c.id === client.id ? { ...c, ...updateData } : c));
+    } catch (err) {
+      alert('Failed to update payment status');
     }
   };
 
@@ -117,9 +177,13 @@ const Clients = () => {
       papier: client.papier || '',
       usage_vehicle: client.usage_vehicle || '',
       immatriculation: client.immatriculation || '',
-      date_effet: client.date_effet ? client.date_effet.split('T')[0] : '',
-      date_expiration: client.date_expiration ? client.date_expiration.split('T')[0] : '',
-      total: client.total || ''
+      date_effet: client.date_effet ? new Date(client.date_effet).toLocaleDateString('en-CA') : '',
+      date_expiration: client.date_expiration ? new Date(client.date_expiration).toLocaleDateString('en-CA') : '',
+      total: client.total || '',
+      payment_status: client.payment_status || 'Unpaid',
+      payment_date: client.payment_date ? new Date(client.payment_date).toLocaleDateString('en-CA') : '',
+      payment_method: client.payment_method || '',
+      category: client.category || ''
     });
     setShowForm(true);
     setOpenDropdownId(null);
@@ -138,13 +202,45 @@ const Clients = () => {
 
   // Filter clients based on all 6 filter fields
   const filteredClients = clients.filter(client => {
+    // Helper to format date for comparison (handles timezone shifts by using local time)
+    const normalizeDate = (dateVal) => {
+      if (!dateVal) return '';
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return '';
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const clientDateEffet = normalizeDate(client.date_effet);
+    const clientDateExpiration = normalizeDate(client.date_expiration);
+
     return (
       (client.police || '').toLowerCase().includes(filters.police.toLowerCase()) &&
       (client.societaire || '').toLowerCase().includes(filters.societaire.toLowerCase()) &&
       (client.tel || '').toLowerCase().includes(filters.tel.toLowerCase()) &&
       (client.immatriculation || '').toLowerCase().includes(filters.immatriculation.toLowerCase()) &&
-      (filters.date_effet === '' || (client.date_effet && client.date_effet.includes(filters.date_effet))) &&
-      (filters.date_expiration === '' || (client.date_expiration && client.date_expiration.includes(filters.date_expiration)))
+      (client.usage_vehicle || '').toLowerCase().includes(filters.usage_vehicle.toLowerCase()) &&
+      (client.rc || '').toString().toLowerCase().includes(filters.rc.toLowerCase()) &&
+      (filters.papier === '' || (client.papier || '').toLowerCase().includes(filters.papier.toLowerCase())) &&
+      (filters.date_effet === '' || clientDateEffet === filters.date_effet) &&
+      (filters.date_expiration === '' || clientDateExpiration === filters.date_expiration) &&
+      (filters.payment_status === '' || client.payment_status === filters.payment_status) &&
+      (filters.category === '' || client.category === filters.category) &&
+      (filters.status === '' || (() => {
+        if (!client.date_expiration) return false;
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const exp = new Date(client.date_expiration);
+        exp.setHours(0,0,0,0);
+        const diff = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+        
+        if (filters.status === 'expiring_soon') return diff > 0 && diff <= 15 && client.renewal_status !== 'Refused';
+        if (filters.status === 'expired') return diff <= 0 && client.renewal_status !== 'Refused';
+        if (filters.status === 'renewable') return diff <= 30 && client.renewal_status !== 'Refused';
+        return true;
+      })())
     );
   });
 
@@ -161,13 +257,49 @@ const Clients = () => {
   return (
     <div className="page-content">
       <div className="page-header">
-        <h1>Clients Management</h1>
+        <h1>Gestion des Clients</h1>
       </div>
+
+      {isAdmin && (
+        <div className="stats-container animate-fade-in">
+          {categoryStats.stats && categoryStats.stats.length > 0 ? (
+            <div className="stats-grid-categories">
+              {categoryStats.stats.map((stat, index) => {
+                const colors = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+                const color = colors[index % colors.length];
+                return (
+                  <div key={index} className="stat-card-premium">
+                    <div className="stat-card-header">
+                      <span className="stat-category-name">{stat.name}</span>
+                      <span className="stat-count">{stat.count} clients</span>
+                    </div>
+                    <div className="stat-progress-container">
+                      <div 
+                        className="stat-progress-bar" 
+                        style={{ 
+                          width: `${stat.percentage}%`, 
+                          backgroundColor: color,
+                          boxShadow: `0 0 10px ${color}40`
+                        }}
+                      ></div>
+                    </div>
+                    <div className="stat-percentage">{stat.percentage}%</div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="no-stats-msg">
+              📊 Aucune statistique de catégorie disponible pour le moment.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Collapsible Filter Section */}
       <div className="filter-section">
         <div className="filter-header" onClick={() => setShowFilters(!showFilters)}>
-          <h3>Quick Filters</h3>
+          <h3>Filtrage rapide</h3>
           <span className={`arrow ${showFilters ? 'open' : ''}`}>▼</span>
         </div>
         
@@ -211,6 +343,34 @@ const Clients = () => {
                 />
               </div>
               <div className="filter-item">
+                <label>Usage du véhicule</label>
+                <input 
+                  type="text" 
+                  placeholder="Filter by Usage..." 
+                  value={filters.usage_vehicle}
+                  onChange={(e) => handleFilterChange('usage_vehicle', e.target.value)}
+                />
+              </div>
+              <div className="filter-item">
+                <label>RC</label>
+                <input 
+                  type="text" 
+                  placeholder="Filter by RC..." 
+                  value={filters.rc}
+                  onChange={(e) => handleFilterChange('rc', e.target.value)}
+                />
+              </div>
+              <div className="filter-item">
+                <label>Papier</label>
+                <input 
+                  type="text" 
+                  placeholder="Filter by Papier..." 
+                  value={filters.papier}
+                  onChange={(e) => handleFilterChange('papier', e.target.value)}
+                />
+              </div>
+              
+              <div className="filter-item">
                 <label>Date d'effet</label>
                 <input 
                   type="date" 
@@ -226,10 +386,56 @@ const Clients = () => {
                   onChange={(e) => handleFilterChange('date_expiration', e.target.value)}
                 />
               </div>
+              <div className="filter-item">
+                <label>Statut de renouvellement</label>
+                <select 
+                  value={filters.status}
+                  onChange={(e) => handleFilterChange('status', e.target.value)}
+                >
+                  <option value="">Tous les clients</option>
+                  <option value="renewable">Renouvelables (&lt; 30j)</option>
+                  <option value="expiring_soon">Expire bientôt (&lt; 15j)</option>
+                  <option value="expired">Déjà expirés</option>
+                </select>
+              </div>
+              <div className="filter-item">
+                <label>Statut Paiement</label>
+                <select 
+                  value={filters.payment_status}
+                  onChange={(e) => handleFilterChange('payment_status', e.target.value)}
+                >
+                  <option value="">Tous les paiements</option>
+                  <option value="Paid">Payé</option>
+                  <option value="Unpaid">Impayé</option>
+                </select>
+              </div>
+              <div className="filter-item">
+                <label>Catégorie</label>
+                <select 
+                  value={filters.category}
+                  onChange={(e) => handleFilterChange('category', e.target.value)}
+                >
+                  <option value="">Toutes les catégories</option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.name}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <button className="clear-filters" onClick={() => setFilters({
-              date_effet: '', date_expiration: '', police: '', societaire: '', tel: '', immatriculation: ''
-            })}>Clear All Filters</button>
+              date_effet: '', 
+              date_expiration: '', 
+              police: '', 
+              societaire: '', 
+              tel: '', 
+              immatriculation: '',
+              usage_vehicle: '',
+              rc: '',
+              papier: '',
+              status: '',
+              payment_status: '',
+              category: ''
+            })}>Effacer tous les filtres</button>
           </div>
         )}
       </div>
@@ -246,6 +452,12 @@ const Clients = () => {
                 <span className="value">{grandTotal} <small>DT</small></span>
               </div>
             )}
+            <div className="stats-mini-pills">
+              
+              <span className="pill unpaid">
+                {filteredClients.filter(c => c.payment_status === 'Unpaid' || !c.payment_status).length} Impayé
+              </span>
+            </div>
           </div>
         )}
         <button className="add-btn" onClick={() => {
@@ -256,13 +468,13 @@ const Clients = () => {
             setShowForm(!showForm);
           }
         }}>
-          {showForm ? 'Cancel' : '+ Add New Client'}
+          {showForm ? 'Annuler' : '+ Ajouter un Client'}
         </button>
       </div>      {showForm && (
         <div className="modal-overlay">
           <div className="modal-content form-modal">
             <div className="modal-header">
-              <h2>{editingId ? 'Edit Client' : 'New Client Information'}</h2>
+              <h2>{editingId ? 'Modifier un Client' : 'Nouveau Client'}</h2>
               <button className="close-modal" onClick={() => {
                 setShowForm(false);
                 setEditingId(null);
@@ -298,6 +510,7 @@ const Clients = () => {
                       <option value="Cheque">Cheque</option>
                       <option value="Espece">Espece</option>
                       <option value="Virement">Virement</option>
+                      <option value="Kembyela">Kembyela</option>
                     </select>
                   </div>
                   <div className="form-group">
@@ -336,9 +549,45 @@ const Clients = () => {
                     <label>Total</label>
                     <input type="number" value={formData.total} onChange={e => setFormData({...formData, total: e.target.value})} />
                   </div>
+                  <div className="form-group">
+                    <label>Statut Paiement</label>
+                    <select 
+                      value={formData.payment_status} 
+                      onChange={e => setFormData({...formData, payment_status: e.target.value})}
+                    >
+                      <option value="Unpaid">Impayé</option>
+                      <option value="Paid">Payé</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Date de Paiement</label>
+                    <input type="date" value={formData.payment_date} onChange={e => setFormData({...formData, payment_date: e.target.value})} />
+                  </div>
+                  <div className="form-group">
+                    <label>Catégorie</label>
+                    <div className="category-input-container">
+                      <select 
+                        value={formData.category} 
+                        onChange={e => setFormData({...formData, category: e.target.value})}
+                      >
+                        <option value="">Sélectionner une catégorie...</option>
+                        {categories.map(cat => (
+                          <option key={cat.id} value={cat.name}>{cat.name}</option>
+                        ))}
+                      </select>
+                      <button 
+                        type="button" 
+                        className="add-category-btn"
+                        onClick={() => setShowCategoryModal(true)}
+                        title="Ajouter une nouvelle catégorie"
+                      >
+                        <Plus size={18} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <button type="submit" className="save-btn">
-                  {editingId ? 'Update Client' : 'Save Client'}
+                  {editingId ? 'Modifier' : 'Sauvegarder Client'}
                 </button>
               </form>
             </div>
@@ -351,11 +600,12 @@ const Clients = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h2>Client Details</h2>
+              <h2>Details Client</h2>
               <button className="close-modal" onClick={() => setViewingClient(null)}>&times;</button>
             </div>
             <div className="modal-body">
               <div className="view-grid">
+                <p><strong>ID:</strong> {viewingClient.id}</p>
                 <p><strong>Police:</strong> {viewingClient.police}</p>
                 <p><strong>Societaire:</strong> {viewingClient.societaire}</p>
                 <p><strong>Adresse:</strong> {viewingClient.adresse}</p>
@@ -369,8 +619,12 @@ const Clients = () => {
                 <p><strong>Immatriculation:</strong> {viewingClient.immatriculation}</p>
                 <p><strong>Date Effet:</strong> {viewingClient.date_effet ? new Date(viewingClient.date_effet).toLocaleDateString() : '-'}</p>
                 <p><strong>Date Expiration:</strong> {viewingClient.date_expiration ? new Date(viewingClient.date_expiration).toLocaleDateString() : '-'}</p>
-                <p><strong>Créé le:</strong> {viewingClient.created_at ? new Date(viewingClient.created_at).toLocaleString() : '-'}</p>
                 <p><strong>Total:</strong> {viewingClient.total}</p>
+                <p><strong>Catégorie:</strong> {viewingClient.category || '-'}</p>
+                <p><strong>Statut Paiement:</strong> {viewingClient.payment_status === 'Paid' ? '✅ Payé' : '❌ Impayé'}</p>
+                <p><strong>Date Paiement:</strong> {viewingClient.payment_date ? new Date(viewingClient.payment_date).toLocaleDateString() : '-'}</p>
+                <p><strong>Créé le:</strong> {viewingClient.created_at ? new Date(viewingClient.created_at).toLocaleString() : '-'}</p>
+                <p><strong>Ajouter par:</strong> {viewingClient.creator_name || '-'}</p>
               </div>
             </div>
           </div>
@@ -383,30 +637,82 @@ const Clients = () => {
         <table>
           <thead>
             <tr>
-              <th>ID</th>
+             
               <th>Police</th>
               <th>Societaire</th>
               <th>Telephone</th>
+              <th>Catégorie</th>
               <th>Immatriculation</th>
               <th>Usage</th>
               <th>Date d'effet</th>
               <th>Date d'expiration</th>
               <th>Total</th>
+              <th>Payé?</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {currentItems.map(client => (
               <tr key={client.id}>
-                <td>{client.id}</td>
+                
                 <td>{client.police}</td>
                 <td>{client.societaire}</td>
                 <td>{client.tel}</td>
+                <td>
+                  <span className="category-badge">{client.category || 'N/A'}</span>
+                </td>
                 <td>{client.immatriculation}</td>
                 <td>{client.usage_vehicle}</td>
                 <td>{client.date_effet ? new Date(client.date_effet).toLocaleDateString() : '-'}</td>
-                <td>{client.date_expiration ? new Date(client.date_expiration).toLocaleDateString() : '-'}</td>
+                <td className={(() => {
+                  if (client.renewal_status === 'Refused') return 'expiration-expired';
+                  if (!client.date_expiration) return '';
+                  const today = new Date();
+                  today.setHours(0,0,0,0);
+                  const exp = new Date(client.date_expiration);
+                  exp.setHours(0,0,0,0);
+                  const diff = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+                  if (diff <= 0) return 'expiration-expired';
+                  if (diff <= 3) return 'expiration-critical';
+                  if (diff <= 10) return 'expiration-warning';
+                  return '';
+                })()}>
+                  <div className="expiration-cell">
+                    <span>
+                      {client.renewal_status === 'Refused' 
+                        ? 'Renou refusé' 
+                        : (client.date_expiration ? new Date(client.date_expiration).toLocaleDateString() : '-')}
+                    </span>
+                    {(() => {
+                      if (client.renewal_status === 'Refused') return <span className="expire-badge expired">Renou refusé</span>;
+                      if (!client.date_expiration) return null;
+                      const today = new Date();
+                      today.setHours(0,0,0,0);
+                      const exp = new Date(client.date_expiration);
+                      exp.setHours(0,0,0,0);
+                      const diff = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+                      if (diff <= 0) return <span className="expire-badge expired">Expiré</span>;
+                      if (diff <= 3) return <span className="expire-badge critical">Expire bientôt</span>;
+                      if (diff <= 10) return <span className="expire-badge warning">{diff}j restants</span>;
+                      return null;
+                    })()}
+                  </div>
+                </td>
                 <td className="amount">{client.total}</td>
+                <td>
+                   <button 
+                     onClick={() => togglePaymentStatus(client)}
+                     className={`payment-toggle-btn ${client.payment_status === 'Paid' ? 'paid' : 'unpaid'}`}
+                     title={client.payment_status === 'Paid' ? 'Marquer comme Impayé' : 'Marquer comme Payé'}
+                   >
+                     {client.payment_status === 'Paid' ? (
+                       <CheckCircle size={20} />
+                     ) : (
+                       <XCircle size={20} />
+                     )}
+                     <span>{client.payment_status === 'Paid' ? 'Payé' : 'Impayé'}</span>
+                   </button>
+                 </td>
                 <td className="actions-cell">
                   <div className="dropdown">
                     <button 
@@ -422,6 +728,12 @@ const Clients = () => {
                         </button>
                         <button onClick={() => handleEdit(client)} className="dropdown-item edit">
                           <Edit size={16} style={{marginRight: '8px'}} /> Modifier
+                        </button>
+                        <button onClick={() => {
+                          setRenewingClient(client);
+                          setOpenDropdownId(null);
+                        }} className="dropdown-item renew">
+                          <RefreshCw size={16} style={{marginRight: '8px'}} /> Renouveler
                         </button>
                         <button onClick={() => { 
                           confirmDelete(client.id); 
@@ -470,6 +782,53 @@ const Clients = () => {
         <span>Page {currentPage} of {totalPages || 1}</span>
         <button onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages || totalPages === 0}>Next</button>
       </div>
+
+      {renewingClient && (
+        <RenewalModal 
+          client={renewingClient} 
+          onClose={() => setRenewingClient(null)} 
+          onRenewalSuccess={() => {
+            setSuccessMessage('Renouvellement enregistré !');
+            fetchClients();
+          }} 
+        />
+      )}
+
+      {/* Add Category Modal */}
+      {showCategoryModal && (
+        <div className="modal-overlay">
+          <div className="modal-content confirm-modal animate-pop">
+            <h2>Nouvelle Catégorie</h2>
+            <p>Saisissez le nom de la nouvelle catégorie à ajouter :</p>
+            <input 
+              type="text" 
+              className="modal-input" 
+              placeholder="Ex: Moto, Camion..."
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              autoFocus
+            />
+            <div className="confirm-actions">
+              <button className="cancel-btn" onClick={() => {
+                setShowCategoryModal(false);
+                setNewCategoryName('');
+              }}>Annuler</button>
+              <button className="save-btn-small" onClick={async () => {
+                if (!newCategoryName.trim()) return;
+                try {
+                  const res = await api.post('/categories', { name: newCategoryName });
+                  setCategories([...categories, res.data.data]);
+                  setFormData({ ...formData, category: newCategoryName });
+                  setShowCategoryModal(false);
+                  setNewCategoryName('');
+                } catch (err) {
+                  alert(err.response?.data?.message || 'Erreur lors de l\'ajout');
+                }
+              }}>Ajouter</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

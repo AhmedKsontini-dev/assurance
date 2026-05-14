@@ -11,7 +11,10 @@ import Users from './pages/Users';
 import Reports from './pages/Reports';
 import EmployeeDetails from './pages/EmployeeDetails';
 import Expenses from './pages/Expenses';
+import Alerts from './pages/Alerts';
+import CalendarPage from './pages/CalendarPage';
 import './App.css';
+import './pages/Renewal.css';
 
 const AppLayout = ({ children }) => {
   const [showAccessDenied, setShowAccessDenied] = useState(false);
@@ -64,6 +67,8 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
             <Route path="/clients" element={<AppLayout><Clients /></AppLayout>} />
+            <Route path="/alerts" element={<AppLayout><Alerts /></AppLayout>} />
+            <Route path="/calendar" element={<AppLayout><CalendarPage /></AppLayout>} />
           </Route>
 
           <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>

@@ -17,12 +17,22 @@ const Sidebar = () => {
               <span className="nav-icon">🏠</span> Dashboard
             </Link>
           </li>
+          <li>
+            <Link to="/calendar" className={isActive('/calendar')}>
+              <span className="nav-icon">📅</span> Calendrier
+            </Link>
+          </li>
           
           <div className="sidebar-separator"><span>Gestion des tables</span></div>
           
           <li>
             <Link to="/clients" className={isActive('/clients')}>
               <span className="nav-icon">👥</span> Tableau des clients
+            </Link>
+          </li>
+          <li>
+            <Link to="/alerts" className={isActive('/alerts')}>
+              <span className="nav-icon">🔔</span> Alertes & Notifications
             </Link>
           </li>
           {isAdmin && (
@@ -38,7 +48,7 @@ const Sidebar = () => {
               <div className="sidebar-separator"><span>Analyses & Finances</span></div>
               <li>
                 <Link to="/reports" className={isActive('/reports')}>
-                  <span className="nav-icon">📈</span> Employee Reports
+                  <span className="nav-icon">📈</span> Rapports des employes
                 </Link>
               </li>
               <li>
