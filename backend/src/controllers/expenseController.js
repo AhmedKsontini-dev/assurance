@@ -6,6 +6,7 @@ exports.getExpenses = async (req, res, next) => {
       category: req.query.category,
       startDate: req.query.startDate,
       endDate: req.query.endDate,
+      date: req.query.date,
       search: req.query.search
     };
     
@@ -69,7 +70,12 @@ exports.deleteExpense = async (req, res, next) => {
 
 exports.getExpenseStats = async (req, res, next) => {
   try {
-    const stats = await Expense.getStatsByUserId(req.user.id);
+    const filters = {
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+      date: req.query.date
+    };
+    const stats = await Expense.getStatsByUserId(req.user.id, filters);
     
     res.status(200).json({
       status: 'success',

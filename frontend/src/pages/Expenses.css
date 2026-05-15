@@ -8,6 +8,14 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
 }
 
 .expenses-header h1 {
@@ -31,6 +39,63 @@
 .add-expense-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);
+}
+
+/* Filter Section (Dashboard Style) */
+.expenses-filter-section {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.date-input-wrapper-expenses {
+  display: flex; 
+  align-items: center; 
+  background: #fff; 
+  border: 2px solid #ec5b32; 
+  border-radius: 12px;
+  padding: 8px 16px;
+  box-shadow: 0 4px 6px rgba(236, 91, 50, 0.1);
+  transition: all 0.3s ease;
+  width: fit-content;
+}
+
+.date-input-wrapper-expenses svg {
+  margin-right: 10px;
+}
+
+.date-picker-input-expenses {
+  border: none;
+  outline: none;
+  color: #ec5b32;
+  font-weight: 600;
+  font-size: 1rem;
+  background: transparent;
+  cursor: pointer;
+  accent-color: #ec5b32;
+}
+
+.reset-filter-btn-expenses {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  color: #ec5b32;
+  border: 1px solid #ec5b32;
+  padding: 8px 16px;
+  border-radius: 12px;
+  fontWeight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(236, 91, 50, 0.05);
+}
+
+.reset-filter-btn-expenses:hover {
+  background: #fff3f0;
+}
+
+.filtered-stat::before {
+  background: linear-gradient(90deg, #10b981, #34d399) !important;
 }
 
 /* Summary Cards */

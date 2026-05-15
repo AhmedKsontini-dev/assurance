@@ -19,14 +19,24 @@ class Expense {
     let query = 'SELECT * FROM expenses WHERE user_id = ?';
     let params = [userId];
 
+    if (filters.date) {
+      query += ' AND DATE(expense_date) = ?';
+      params.push(filters.date);
+    }
+
     if (filters.category) {
       query += ' AND category = ?';
       params.push(filters.category);
     }
 
-    if (filters.startDate && filters.endDate) {
-      query += ' AND expense_date BETWEEN ? AND ?';
-      params.push(filters.startDate, filters.endDate);
+    if (filters.startDate) {
+      query += ' AND expense_date >= ?';
+      params.push(filters.startDate);
+    }
+
+    if (filters.endDate) {
+      query += ' AND expense_date <= ?';
+      params.push(filters.endDate);
     }
 
     if (filters.search) {
@@ -54,18 +64,43 @@ class Expense {
     return result.affectedRows > 0;
   }
 
-  static async getStatsByUserId(userId) {
+  static async getStatsByUserId(userId, filters = {}) {
+    let dateCondition = '';
+    let params = [userId];
+
+    if (filters.date) {
+      dateCondition += ' AND DATE(expense_date) = ?';
+      params.push(filters.date);
+    }
+
+    if (filters.startDate) {
+      dateCondition += ' AND expense_date >= ?';
+      params.push(filters.startDate);
+    }
+    if (filters.endDate) {
+      dateCondition += ' AND expense_date <= ?';
+      params.push(filters.endDate);
+    }
+
     const queries = {
-      today: 'SELECT SUM(amount) as total FROM expenses WHERE user_id = ? AND DATE(expense_date) = CURDATE()',
-      thisMonth: 'SELECT SUM(amount) as total FROM expenses WHERE user_id = ? AND MONTH(expense_date) = MONTH(CURDATE()) AND YEAR(expense_date) = YEAR(CURDATE())',
-      thisYear: 'SELECT SUM(amount) as total FROM expenses WHERE user_id = ? AND YEAR(expense_date) = YEAR(CURDATE())',
-      overall: 'SELECT SUM(amount) as total FROM expenses WHERE user_id = ?',
-      byCategory: 'SELECT category, SUM(amount) as total FROM expenses WHERE user_id = ? GROUP BY category ORDER BY total DESC'
+      today: `SELECT SUM(amount) as total FROM expenses WHERE user_id = ? AND DATE(expense_date) = CURDATE()`,
+      thisMonth: `SELECT SUM(amount) as total FROM expenses WHERE user_id = ? AND MONTH(expense_date) = MONTH(CURDATE()) AND YEAR(expense_date) = YEAR(CURDATE())`,
+      thisYear: `SELECT SUM(amount) as total FROM expenses WHERE user_id = ? AND YEAR(expense_date) = YEAR(CURDATE())`,
+      overall: `SELECT SUM(amount) as total FROM expenses WHERE user_id = ?`,
+      filtered: (filters.startDate || filters.endDate || filters.date) ? `SELECT SUM(amount) as total FROM expenses WHERE user_id = ? ${dateCondition}` : null,
+      byCategory: `SELECT category, SUM(amount) as total FROM expenses WHERE user_id = ? ${dateCondition} GROUP BY category ORDER BY total DESC`
     };
 
     const stats = {};
     for (const [key, sql] of Object.entries(queries)) {
-      const [rows] = await db.query(sql, [userId]);
+      if (!sql) continue;
+      
+      let currentParams = [...params];
+      if (key === 'today' || key === 'thisMonth' || key === 'thisYear' || key === 'overall') {
+        currentParams = [userId]; // These are fixed ranges
+      }
+
+      const [rows] = await db.query(sql, currentParams);
       if (key === 'byCategory') {
         stats[key] = rows;
       } else {

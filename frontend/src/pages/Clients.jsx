@@ -260,42 +260,6 @@ const Clients = () => {
         <h1>Gestion des Clients</h1>
       </div>
 
-      {isAdmin && (
-        <div className="stats-container animate-fade-in">
-          {categoryStats.stats && categoryStats.stats.length > 0 ? (
-            <div className="stats-grid-categories">
-              {categoryStats.stats.map((stat, index) => {
-                const colors = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-                const color = colors[index % colors.length];
-                return (
-                  <div key={index} className="stat-card-premium">
-                    <div className="stat-card-header">
-                      <span className="stat-category-name">{stat.name}</span>
-                      <span className="stat-count">{stat.count} clients</span>
-                    </div>
-                    <div className="stat-progress-container">
-                      <div 
-                        className="stat-progress-bar" 
-                        style={{ 
-                          width: `${stat.percentage}%`, 
-                          backgroundColor: color,
-                          boxShadow: `0 0 10px ${color}40`
-                        }}
-                      ></div>
-                    </div>
-                    <div className="stat-percentage">{stat.percentage}%</div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="no-stats-msg">
-              📊 Aucune statistique de catégorie disponible pour le moment.
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Collapsible Filter Section */}
       <div className="filter-section">
         <div className="filter-header" onClick={() => setShowFilters(!showFilters)}>

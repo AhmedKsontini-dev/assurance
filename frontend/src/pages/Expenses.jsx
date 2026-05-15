@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getExpenses, createExpense, updateExpense, deleteExpense, getExpenseStats } from '../services/expenseService';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Edit, Trash2 } from 'lucide-react';
+import { Edit, Trash2, Calendar, XCircle } from 'lucide-react';
 import './Expenses.css';
 
 const EXPENSE_CATEGORIES = [
@@ -17,6 +17,7 @@ const Expenses = () => {
   const [showModal, setShowModal] = useState(false);
   const [currentExpense, setCurrentExpense] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [filterDate, setFilterDate] = useState('');
 
   // Form State
   const [formData, setFormData] = useState({
@@ -30,8 +31,14 @@ const Expenses = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const expensesData = await getExpenses();
-      const statsData = await getExpenseStats();
+      const filters = {};
+      if (filterDate) filters.date = filterDate;
+
+      const [expensesData, statsData] = await Promise.all([
+        getExpenses(filters),
+        getExpenseStats(filters)
+      ]);
+      
       setExpenses(expensesData);
       setStats(statsData);
     } catch (error) {
@@ -43,7 +50,7 @@ const Expenses = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [filterDate]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -110,9 +117,30 @@ const Expenses = () => {
     <div className="expenses-container">
       <div className="expenses-header">
         <h1>Mes Dépenses (Privé)</h1>
-        <button className="add-expense-btn" onClick={() => handleOpenModal()}>
-          + Nouvelle Dépense
-        </button>
+        
+        <div className="header-actions">
+          <div className="expenses-filter-section">
+            <div className="date-input-wrapper-expenses">
+              <Calendar size={20} color="#ec5b32" />
+              <input 
+                type="date" 
+                className="date-picker-input-expenses"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                title="Filtrer les dépenses par date"
+              />
+            </div>
+            {filterDate && (
+              <button className="reset-filter-btn-expenses" onClick={() => setFilterDate('')}>
+                <XCircle size={18} /> Voir Tout
+              </button>
+            )}
+          </div>
+
+          <button className="add-expense-btn" onClick={() => handleOpenModal()}>
+            + Nouvelle Dépense
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -133,6 +161,12 @@ const Expenses = () => {
           <div className="stat-title">Total Global</div>
           <div className="stat-value">{formatCurrency(stats.overall)}</div>
         </div>
+        {stats.filtered !== undefined && stats.filtered !== null && (
+          <div className="stat-card filtered-stat">
+            <div className="stat-title">Dépenses du {new Date(filterDate).toLocaleDateString('fr-TN')}</div>
+            <div className="stat-value">{formatCurrency(stats.filtered)}</div>
+          </div>
+        )}
       </div>
 
       {/* Analytics Chart */}

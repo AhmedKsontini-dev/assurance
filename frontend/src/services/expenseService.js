@@ -19,7 +19,7 @@ export const deleteExpense = async (id) => {
   await api.delete(`/expenses/${id}`);
 };
 
-export const getExpenseStats = async () => {
-  const { data } = await api.get('/expenses/stats');
+export const getExpenseStats = async (filters = {}) => {
+  const { data } = await api.get('/expenses/stats', { params: filters });
   return data.data.stats;
 };
