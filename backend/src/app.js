@@ -15,7 +15,14 @@ const Caisse = require('./models/caisseModel');
 const app = express();
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+  origin: [
+  'http://localhost:5173',
+  'http://192.168.1.91:5173'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  credentials: true
+}));
 app.use(express.json());
 
 // Initialize caisse tables
