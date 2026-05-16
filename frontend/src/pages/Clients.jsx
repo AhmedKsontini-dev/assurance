@@ -350,18 +350,7 @@ const Clients = () => {
                   onChange={(e) => handleFilterChange('date_expiration', e.target.value)}
                 />
               </div>
-              <div className="filter-item">
-                <label>Statut de renouvellement</label>
-                <select 
-                  value={filters.status}
-                  onChange={(e) => handleFilterChange('status', e.target.value)}
-                >
-                  <option value="">Tous les clients</option>
-                  <option value="renewable">Renouvelables (&lt; 30j)</option>
-                  <option value="expiring_soon">Expire bientôt (&lt; 15j)</option>
-                  <option value="expired">Déjà expirés</option>
-                </select>
-              </div>
+              
               <div className="filter-item">
                 <label>Statut Paiement</label>
                 <select 
