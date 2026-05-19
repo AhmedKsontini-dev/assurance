@@ -573,11 +573,14 @@ const Clients = () => {
                 <p><strong>Date Effet:</strong> {viewingClient.date_effet ? new Date(viewingClient.date_effet).toLocaleDateString() : '-'}</p>
                 <p><strong>Date Expiration:</strong> {viewingClient.date_expiration ? new Date(viewingClient.date_expiration).toLocaleDateString() : '-'}</p>
                 <p><strong>Total:</strong> {viewingClient.total}</p>
-                <p><strong>Catégorie:</strong> {viewingClient.category || '-'}</p>
-                <p><strong>Statut Paiement:</strong> {viewingClient.payment_status === 'Paid' ? '✅ Payé' : '❌ Impayé'}</p>
-                <p><strong>Date Paiement:</strong> {viewingClient.payment_date ? new Date(viewingClient.payment_date).toLocaleDateString() : '-'}</p>
                 <p><strong>Créé le:</strong> {viewingClient.created_at ? new Date(viewingClient.created_at).toLocaleString() : '-'}</p>
                 <p><strong>Ajouter par:</strong> {viewingClient.creator_name || '-'}</p>
+                <p><strong>Statut Renouvellement:</strong> {viewingClient.renewal_status || '-'}</p>
+                <p><strong>Statut Paiement:</strong> {viewingClient.payment_status === 'Paid' ? '✅ Payé' : viewingClient.payment_status === 'Partial' ? '⚠️ Partiel' : '❌ Impayé'}</p>
+                <p><strong>Date Paiement:</strong> {viewingClient.payment_date ? new Date(viewingClient.payment_date).toLocaleDateString() : '-'}</p>
+                <p><strong>Catégorie:</strong> {viewingClient.category || '-'}</p>
+                <p><strong>Montant Payé:</strong> {viewingClient.montant_paye}</p>
+                <p><strong>Prochain Paiement:</strong> {viewingClient.date_prochain_paiement ? new Date(viewingClient.date_prochain_paiement).toLocaleDateString() : '-'}</p>
               </div>
             </div>
           </div>
@@ -590,32 +593,45 @@ const Clients = () => {
         <table>
           <thead>
             <tr>
-             
               <th>Police</th>
-              <th>Societaire</th>
-              <th>Telephone</th>
-              <th>Catégorie</th>
+              <th>Sociétaire</th>
+              <th>Adresse</th>
+              <th>Téléphone</th>
+              <th>Montant</th>
+              <th>Réduction</th>
               <th>Immatriculation</th>
-              <th>Usage</th>
               <th>Date d'effet</th>
               <th>Date d'expiration</th>
               <th>Total</th>
-              <th>Payé?</th>
+              <th>Statut Paiement</th>
+              <th>Catégorie</th>
+              <th>Montant Payé</th>
+              <th>Prochain Paiement</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {currentItems.map(client => (
+            {currentItems.map(client => {
+              const totalAmount = parseFloat(client.total) || 0;
+              const paidAmount = parseFloat(client.montant_paye) || 0;
+              const remainingAmount = totalAmount - paidAmount;
+              
+              let paymentStatusStr = client.payment_status === 'Paid' ? 'Payé' : 'Impayé';
+              let statusClass = client.payment_status === 'Paid' ? 'paid' : 'unpaid';
+              if (client.payment_status === 'Partial') {
+                paymentStatusStr = 'Partiellement payé';
+                statusClass = 'partial';
+              }
+
+              return (
               <tr key={client.id}>
-                
                 <td>{client.police}</td>
                 <td>{client.societaire}</td>
-                <td>{client.tel}</td>
-                <td>
-                  <span className="category-badge">{client.category || 'N/A'}</span>
-                </td>
-                <td>{client.immatriculation}</td>
-                <td>{client.usage_vehicle}</td>
+                <td>{client.adresse || '-'}</td>
+                <td>{client.tel || '-'}</td>
+                <td className="amount">{client.montant !== null && client.montant !== undefined ? `${client.montant} DT` : '-'}</td>
+                <td className="amount">{client.reduction !== null && client.reduction !== undefined ? `${client.reduction} DT` : '-'}</td>
+                <td>{client.immatriculation || '-'}</td>
                 <td>{client.date_effet ? new Date(client.date_effet).toLocaleDateString() : '-'}</td>
                 <td className={(() => {
                   if (client.renewal_status === 'Refused') return 'expiration-expired';
@@ -651,21 +667,55 @@ const Clients = () => {
                     })()}
                   </div>
                 </td>
-                <td className="amount">{client.total}</td>
+                <td className="amount">{totalAmount.toFixed(2)} DT</td>
                 <td>
-                   <button 
-                     onClick={() => togglePaymentStatus(client)}
-                     className={`payment-toggle-btn ${client.payment_status === 'Paid' ? 'paid' : 'unpaid'}`}
-                     title={client.payment_status === 'Paid' ? 'Marquer comme Impayé' : 'Marquer comme Payé'}
-                   >
-                     {client.payment_status === 'Paid' ? (
-                       <CheckCircle size={20} />
-                     ) : (
-                       <XCircle size={20} />
-                     )}
-                     <span>{client.payment_status === 'Paid' ? 'Payé' : 'Impayé'}</span>
-                   </button>
-                 </td>
+                  <button 
+                    onClick={() => togglePaymentStatus(client)}
+                    className={`payment-toggle-btn ${statusClass}`}
+                    title={paymentStatusStr === 'Payé' ? 'Marquer comme Impayé' : 'Marquer comme Payé'}
+                  >
+                    {paymentStatusStr === 'Payé' ? (
+                      <CheckCircle size={20} />
+                    ) : (
+                      <XCircle size={20} />
+                    )}
+                    <span>{paymentStatusStr}</span>
+                  </button>
+                </td>
+                <td>
+                  <span className="category-badge">{client.category || 'N/A'}</span>
+                </td>
+                <td className="amount" style={{ color: '#27ae60' }}>{paidAmount.toFixed(2)} DT</td>
+                <td className={(() => {
+                  if (!client.date_prochain_paiement || remainingAmount <= 0) return '';
+                  const today = new Date();
+                  today.setHours(0,0,0,0);
+                  const nextPay = new Date(client.date_prochain_paiement);
+                  nextPay.setHours(0,0,0,0);
+                  const diff = Math.ceil((nextPay - today) / (1000 * 60 * 60 * 24));
+                  if (diff <= 0) return 'expiration-expired';
+                  if (diff <= 3) return 'expiration-critical';
+                  if (diff <= 7) return 'expiration-warning';
+                  return '';
+                })()}>
+                  {client.date_prochain_paiement && remainingAmount > 0 ? (
+                    <div className="expiration-cell">
+                      <span>{new Date(client.date_prochain_paiement).toLocaleDateString()}</span>
+                      {(() => {
+                        const today = new Date();
+                        today.setHours(0,0,0,0);
+                        const nextPay = new Date(client.date_prochain_paiement);
+                        nextPay.setHours(0,0,0,0);
+                        const diff = Math.ceil((nextPay - today) / (1000 * 60 * 60 * 24));
+                        if (diff < 0) return <span className="expire-badge expired">En retard</span>;
+                        if (diff === 0) return <span className="expire-badge critical">Aujourd'hui</span>;
+                        if (diff <= 3) return <span className="expire-badge critical">Dans {diff}j</span>;
+                        if (diff <= 7) return <span className="expire-badge warning">Dans {diff}j</span>;
+                        return null;
+                      })()}
+                    </div>
+                  ) : '-'}
+                </td>
                 <td className="actions-cell">
                   <div className="dropdown">
                     <button 
@@ -698,7 +748,8 @@ const Clients = () => {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
