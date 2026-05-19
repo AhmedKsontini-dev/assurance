@@ -36,6 +36,7 @@ exports.getClientById = async (req, res, next) => {
 
 exports.createClient = async (req, res, next) => {
   try {
+    console.log('[DEBUG] Données reçues pour la création du client (req.body):', req.body);
     const clientId = await Client.create({
       ...req.body,
       created_by: req.user.id
@@ -60,6 +61,7 @@ exports.createClient = async (req, res, next) => {
 
 exports.updateClient = async (req, res, next) => {
   try {
+    console.log(`[DEBUG] Données reçues pour la modification du client (ID: ${req.params.id}) (req.body):`, req.body);
     const updated = await Client.update(req.params.id, req.body);
     if (!updated) {
       return res.status(404).json({

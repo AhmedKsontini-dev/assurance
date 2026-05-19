@@ -37,6 +37,13 @@ const initDB = async () => {
       total DECIMAL(10, 2),
       created_by INT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      renewal_status VARCHAR(50),
+      payment_status VARCHAR(50) DEFAULT 'Unpaid',
+      payment_date DATE,
+      payment_method VARCHAR(50),
+      category VARCHAR(100),
+      montant_paye DECIMAL(10, 2) DEFAULT 0.00,
+      date_prochain_paiement DATE,
       FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
     );
     `;

@@ -38,11 +38,15 @@ class Client {
   }
 
   static async create(data) {
+    const toNum = (val) => (val === '' || val === undefined || val === null) ? null : parseFloat(val);
+    const toDate = (val) => (val === '' || val === undefined || val === null) ? null : val;
+
     const {
       police, societaire, adresse, tel, paiement, montant,
       reduction, rc, papier, usage_vehicle, immatriculation,
       date_effet, date_expiration, total, created_by,
-      payment_status, payment_date, payment_method, category
+      payment_status, payment_date, payment_method, category,
+      montant_paye, date_prochain_paiement
     } = data;
 
     const [result] = await db.query(
@@ -50,13 +54,31 @@ class Client {
         police, societaire, adresse, tel, paiement, montant, 
         reduction, rc, papier, usage_vehicle, immatriculation, 
         date_effet, date_expiration, total, created_by,
-        payment_status, payment_date, payment_method, category
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        payment_status, payment_date, payment_method, category,
+        montant_paye, date_prochain_paiement
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        police, societaire, adresse, tel, paiement, montant,
-        reduction, rc, papier, usage_vehicle, immatriculation,
-        date_effet, date_expiration, total, created_by,
-        payment_status || 'Unpaid', payment_date || null, payment_method || null, category || null
+        police || null,
+        societaire || null,
+        adresse || null,
+        tel || null,
+        paiement || null,
+        toNum(montant),
+        toNum(reduction),
+        rc || null,
+        papier || null,
+        usage_vehicle || null,
+        immatriculation || null,
+        toDate(date_effet),
+        toDate(date_expiration),
+        toNum(total),
+        created_by,
+        payment_status || 'Unpaid',
+        toDate(payment_date),
+        payment_method || null,
+        category || null,
+        toNum(montant_paye) || 0.00,
+        toDate(date_prochain_paiement)
       ]
     );
 
@@ -67,10 +89,26 @@ class Client {
     const fields = [];
     const values = [];
 
+    const numFields = ['montant', 'reduction', 'total', 'montant_paye'];
+    const dateFields = ['date_effet', 'date_expiration', 'payment_date', 'date_prochain_paiement'];
+
     Object.keys(data).forEach(key => {
       if (data[key] !== undefined) {
+        let val = data[key];
+        
+        // Sanitize empty strings or nulls for specific types
+        if (val === '') {
+          if (numFields.includes(key)) {
+            val = key === 'montant_paye' ? 0.00 : null;
+          } else if (dateFields.includes(key)) {
+            val = null;
+          }
+        } else if (numFields.includes(key) && val !== null) {
+          val = parseFloat(val);
+        }
+
         fields.push(`${key} = ?`);
-        values.push(data[key]);
+        values.push(val);
       }
     });
 
