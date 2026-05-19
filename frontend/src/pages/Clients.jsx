@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Eye, Edit, Trash2, RefreshCw, Filter, CheckCircle, XCircle, DollarSign, Plus, Printer, AlertCircle } from 'lucide-react';
@@ -51,6 +51,55 @@ const Clients = () => {
   const [grandTotal, setGrandTotal] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+
+  // ── Drag-scroll table ──
+  const tableRef = useRef(null);
+  const dragState = useRef({ isDragging: false, startX: 0, scrollLeft: 0 });
+  const [showLeftShadow, setShowLeftShadow] = useState(false);
+  const [showRightShadow, setShowRightShadow] = useState(true);
+
+  const updateShadows = useCallback(() => {
+    const el = tableRef.current;
+    if (!el) return;
+    setShowLeftShadow(el.scrollLeft > 8);
+    setShowRightShadow(el.scrollLeft + el.clientWidth < el.scrollWidth - 8);
+  }, []);
+
+  const onMouseDown = useCallback((e) => {
+    const el = tableRef.current;
+    if (!el) return;
+    dragState.current = { isDragging: true, startX: e.pageX - el.offsetLeft, scrollLeft: el.scrollLeft };
+    el.style.cursor = 'grabbing';
+    el.style.userSelect = 'none';
+  }, []);
+
+  const onMouseMove = useCallback((e) => {
+    if (!dragState.current.isDragging) return;
+    const el = tableRef.current;
+    if (!el) return;
+    e.preventDefault();
+    const x = e.pageX - el.offsetLeft;
+    const walk = (x - dragState.current.startX) * 1.5;
+    el.scrollLeft = dragState.current.scrollLeft - walk;
+    updateShadows();
+  }, [updateShadows]);
+
+  const onMouseUp = useCallback(() => {
+    dragState.current.isDragging = false;
+    const el = tableRef.current;
+    if (el) { el.style.cursor = 'grab'; el.style.userSelect = ''; }
+  }, []);
+
+  const onWheel = useCallback((e) => {
+    const el = tableRef.current;
+    if (!el) return;
+    // Horizontal scroll via shift+wheel or horizontal wheel
+    if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      e.preventDefault();
+      el.scrollLeft += e.deltaX || e.deltaY;
+      updateShadows();
+    }
+  }, [updateShadows]);
   
   // New client form state (All 14 fields)
   const initialFormState = {
@@ -1118,20 +1167,32 @@ const Clients = () => {
 
       {error && <div className="error-msg">{error}</div>}
 
-      <div className="table-container scrollable">
+      <div className="drag-table-wrapper">
+        {showLeftShadow  && <div className="drag-shadow drag-shadow-left"  />}
+        {showRightShadow && <div className="drag-shadow drag-shadow-right" />}
+        <div
+          className="table-container scrollable drag-scroll"
+          ref={tableRef}
+          onMouseDown={onMouseDown}
+          onMouseMove={onMouseMove}
+          onMouseUp={onMouseUp}
+          onMouseLeave={onMouseUp}
+          onScroll={updateShadows}
+          onWheel={onWheel}
+        >
         <table>
           <thead>
             <tr>
               <th>Police</th>
               <th>Sociétaire</th>
+              <th>Catégorie</th>
               <th>Adresse</th>
               <th>Téléphone</th>
               <th>Immatriculation</th>
               <th>Date d'effet</th>
               <th>Date d'expiration</th>
-              <th>Total</th>
               <th>Statut Paiement</th>
-              <th>Catégorie</th>
+              <th>Total</th>
               <th>Montant Payé</th>
               <th>Prochain Paiement</th>
               <th>Actions</th>
@@ -1154,6 +1215,9 @@ const Clients = () => {
               <tr key={client.id}>
                 <td>{client.police}</td>
                 <td>{client.societaire}</td>
+                <td>
+                  <span className="category-badge">{client.category || 'N/A'}</span>
+                </td>
                 <td>{client.adresse || '-'}</td>
                 <td>{client.tel || '-'}</td>
                
@@ -1193,7 +1257,6 @@ const Clients = () => {
                     })()}
                   </div>
                 </td>
-                <td className="amount">{totalAmount.toFixed(2)} DT</td>
                 <td>
                   <button 
                     onClick={() => togglePaymentStatus(client)}
@@ -1210,9 +1273,8 @@ const Clients = () => {
                     <span>{paymentStatusStr}</span>
                   </button>
                 </td>
-                <td>
-                  <span className="category-badge">{client.category || 'N/A'}</span>
-                </td>
+                <td className="amount">{totalAmount.toFixed(2)} DT</td>
+                
                 <td className="amount" style={{ color: '#27ae60' }}>{paidAmount.toFixed(2)} DT</td>
                 <td className={(() => {
                   if (!client.date_prochain_paiement || remainingAmount <= 0) return '';
@@ -1254,12 +1316,7 @@ const Clients = () => {
                     </button>
                     {openDropdownId === client.id && (
                       <div className="dropdown-menu">
-                        <button onClick={() => {
-                          setPaymentModalClient(client);
-                          setOpenDropdownId(null);
-                        }} className="dropdown-item">
-                          <DollarSign size={16} style={{marginRight: '8px'}} /> Ajouter Versement
-                        </button>
+                        
                         <button onClick={() => handleView(client)} className="dropdown-item view">
                           <Eye size={16} style={{marginRight: '8px'}} /> Voir
                         </button>
@@ -1286,7 +1343,9 @@ const Clients = () => {
             })}
           </tbody>
         </table>
-      </div>
+        </div>{/* end .drag-scroll */}
+      </div>{/* end .drag-table-wrapper */}
+
 
       {/* Delete Confirmation Modal */}
       {deleteConfirmId && (

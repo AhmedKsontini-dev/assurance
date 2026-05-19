@@ -3072,4 +3072,76 @@ tr:hover td {
   .cf-span2 {
     grid-column: span 1;
   }
-}
+}
+
+/* ═══════════════════════════════════════════
+   DRAG-SCROLL TABLE
+═══════════════════════════════════════════ */
+
+/* Outer wrapper — needed for shadow overlays */
+.drag-table-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+/* The scrollable container */
+.drag-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  cursor: grab;
+  scroll-behavior: auto; /* keep instant during drag */
+  -webkit-overflow-scrolling: touch; /* smooth on iOS */
+
+  /* Hide scrollbar visually but keep functionality */
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.drag-scroll::-webkit-scrollbar {
+  height: 5px;
+}
+.drag-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.drag-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+.drag-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Prevent text selection while dragging */
+.drag-scroll.dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+/* Left shadow — indicates hidden content to the left */
+.drag-shadow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 48px;
+  pointer-events: none;
+  z-index: 2;
+  transition: opacity 0.25s ease;
+}
+
+.drag-shadow-left {
+  left: 0;
+  background: linear-gradient(to right, rgba(100,116,139,0.18), transparent);
+  border-radius: 8px 0 0 8px;
+}
+
+.drag-shadow-right {
+  right: 0;
+  background: linear-gradient(to left, rgba(100,116,139,0.18), transparent);
+  border-radius: 0 8px 8px 0;
+}
+
+/* Prevent table cells from being accidentally selected while dragging */
+.drag-scroll table {
+  user-select: none;
+}
+
