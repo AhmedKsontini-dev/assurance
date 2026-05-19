@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Eye, Edit, Trash2, RefreshCw, Filter, CheckCircle, XCircle, DollarSign, Plus } from 'lucide-react';
+import { Eye, Edit, Trash2, RefreshCw, Filter, CheckCircle, XCircle, DollarSign, Plus, Printer } from 'lucide-react';
 import RenewalModal from '../components/RenewalModal';
 
 const Clients = () => {
@@ -20,6 +20,16 @@ const Clients = () => {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [categoryStats, setCategoryStats] = useState({ total: 0, stats: [] });
+  
+  // Print state
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printMonth, setPrintMonth] = useState('');
+  
+  // Payment Modal State
+  const [paymentModalClient, setPaymentModalClient] = useState(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [paymentMethod, setPaymentMethod] = useState('Espece');
   
   // Filtering & Pagination state
   const [filters, setFilters] = useState({
@@ -57,9 +67,11 @@ const Clients = () => {
     date_effet: '',
     date_expiration: '',
     total: '',
+    montant_paye: '',
     payment_status: 'Unpaid',
     payment_date: '',
     payment_method: '',
+    date_prochain_paiement: '',
     category: ''
   };
   const [formData, setFormData] = useState(initialFormState);
@@ -158,6 +170,29 @@ const Clients = () => {
     }
   };
 
+  const handleAddPayment = async (e) => {
+    e.preventDefault();
+    if (!paymentAmount || !paymentDate) {
+      setError("Veuillez remplir le montant et la date du versement.");
+      return;
+    }
+    
+    try {
+      await api.post(`/clients/${paymentModalClient.id}/versements`, {
+        montant: parseFloat(paymentAmount),
+        date_versement: paymentDate,
+        methode_paiement: paymentMethod
+      });
+      setSuccessMessage("Versement ajouté avec succès.");
+      setPaymentModalClient(null);
+      setPaymentAmount('');
+      setPaymentMethod('Espece');
+      fetchClients();
+    } catch (err) {
+      setError("Erreur lors de l'ajout du versement.");
+    }
+  };
+
   const handleView = (client) => {
     setViewingClient(client);
     setOpenDropdownId(null);
@@ -183,6 +218,8 @@ const Clients = () => {
       payment_status: client.payment_status || 'Unpaid',
       payment_date: client.payment_date ? new Date(client.payment_date).toLocaleDateString('en-CA') : '',
       payment_method: client.payment_method || '',
+      date_prochain_paiement: client.date_prochain_paiement ? new Date(client.date_prochain_paiement).toLocaleDateString('en-CA') : '',
+      montant_paye: client.montant_paye || '',
       category: client.category || ''
     });
     setShowForm(true);
@@ -198,6 +235,135 @@ const Clients = () => {
   const calculateGrandTotal = () => {
     const total = filteredClients.reduce((sum, client) => sum + (parseFloat(client.total) || 0), 0);
     setGrandTotal(total.toFixed(2));
+  };
+
+  const generatePrintableList = async () => {
+    if (!printMonth) {
+      alert("Veuillez sélectionner un mois.");
+      return;
+    }
+
+    try {
+      const res = await api.get(`/clients?month=${printMonth}`);
+      // Fallback local filter in case backend has not been restarted
+      const allClients = res.data.data;
+      const filteredClients = allClients.filter(c => {
+        if (!c.created_at) return false;
+        // created_at is returned as ISO string or YYYY-MM-DD
+        return c.created_at.startsWith(printMonth);
+      });
+
+      if (filteredClients.length === 0) {
+        alert("Aucun client n'a été ajouté pendant ce mois.");
+        return;
+      }
+
+      const [year, month] = printMonth.split('-');
+      const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+      const monthName = monthNames[parseInt(month, 10) - 1];
+
+      const printWindow = window.open('', '_blank');
+      
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Liste des clients - ${monthName} ${year}</title>
+            <style>
+              @page { size: landscape; margin: 8mm; }
+              body { font-family: Arial, sans-serif; margin: 10px; color: #333; font-size: 11px; }
+              h1 { text-align: center; color: #2c3e50; margin-bottom: 20px; font-size: 20px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 9px; }
+              th, td { border: 1px solid #ccc; padding: 6px 4px; text-align: left; word-break: break-word; }
+              th { background-color: #f1f5f9; font-weight: bold; color: #1e293b; }
+              tr:nth-child(even) { background-color: #f8fafc; }
+              .footer { margin-top: 25px; text-align: right; font-style: italic; font-size: 12px; color: #475569; }
+              .header-info { margin-bottom: 15px; font-size: 12px; display: flex; justify-content: space-between; }
+              @media print {
+                button { display: none; }
+                body { margin: 0; }
+              }
+            </style>
+          </head>
+          <body>
+            <h1>Rapport des Clients Ajoutés</h1>
+            <div class="header-info">
+              <div><strong>Période :</strong> ${monthName} ${year}</div>
+              <div><strong>Date d'impression :</strong> ${new Date().toLocaleDateString()}</div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Police</th>
+                  <th>Sociétaire</th>
+                  <th>Adresse</th>
+                  <th>Téléphone</th>
+                  <th>Paiement</th>
+                  <th>Montant</th>
+                  <th>Réduction</th>
+                  <th>RC</th>
+                  <th>Papier</th>
+                  <th>Usage Véhicule</th>
+                  <th>Immatriculation</th>
+                  <th>Date Effet</th>
+                  <th>Date Expiration</th>
+                  <th>Total</th>
+                  <th>Statut Paiement</th>
+                  <th>Date Paiement</th>
+                  <th>Montant Payé</th>
+                  <th>Prochain Paiement</th>
+                  <th>Catégorie</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredClients.map(c => `
+                  <tr>
+                    <td>${c.police || '-'}</td>
+                    <td>${c.societaire || '-'}</td>
+                    <td>${c.adresse || '-'}</td>
+                    <td>${c.tel || '-'}</td>
+                    <td>${c.paiement || '-'}</td>
+                    <td>${c.montant !== null && c.montant !== undefined ? c.montant + ' DT' : '-'}</td>
+                    <td>${c.reduction !== null && c.reduction !== undefined ? c.reduction + ' DT' : '-'}</td>
+                    <td>${c.rc !== null && c.rc !== undefined ? c.rc + ' DT' : '-'}</td>
+                    <td>${c.papier || '-'}</td>
+                    <td>${c.usage_vehicle || '-'}</td>
+                    <td>${c.immatriculation || '-'}</td>
+                    <td>${c.date_effet ? new Date(c.date_effet).toLocaleDateString() : '-'}</td>
+                    <td>${c.date_expiration ? new Date(c.date_expiration).toLocaleDateString() : '-'}</td>
+                    <td>${c.total !== null && c.total !== undefined ? c.total + ' DT' : '-'}</td>
+                    <td>${c.payment_status === 'Paid' ? 'Payé' : c.payment_status === 'Partial' ? 'Partiellement payé' : 'Impayé'}</td>
+                    <td>${c.payment_date ? new Date(c.payment_date).toLocaleDateString() : '-'}</td>
+                    <td>${c.montant_paye !== null && c.montant_paye !== undefined ? c.montant_paye + ' DT' : '-'}</td>
+                    <td>${c.date_prochain_paiement ? new Date(c.date_prochain_paiement).toLocaleDateString() : '-'}</td>
+                    <td>${c.category || '-'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            <div class="footer">
+              Total clients inscrits ce mois: <strong>${filteredClients.length}</strong>
+            </div>
+            <script>
+              window.onload = function() {
+                setTimeout(function() {
+                  window.print();
+                }, 500);
+              }
+            </script>
+          </body>
+        </html>
+      `;
+
+      printWindow.document.open();
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      
+      setShowPrintModal(false);
+      setPrintMonth('');
+    } catch (err) {
+      alert('Erreur lors de la récupération des données depuis MySQL.');
+    }
   };
 
   // Filter clients based on all 6 filter fields
@@ -360,6 +526,7 @@ const Clients = () => {
                   <option value="">Tous les paiements</option>
                   <option value="Paid">Payé</option>
                   <option value="Unpaid">Impayé</option>
+                  <option value="Partial">Partiellement payé</option>
                 </select>
               </div>
               <div className="filter-item">
@@ -413,16 +580,21 @@ const Clients = () => {
             </div>
           </div>
         )}
-        <button className="add-btn" onClick={() => {
-          if (showForm && editingId) {
-            setEditingId(null);
-            setFormData(initialFormState);
-          } else {
-            setShowForm(!showForm);
-          }
-        }}>
-          {showForm ? 'Annuler' : '+ Ajouter un Client'}
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button className="total-btn" onClick={() => setShowPrintModal(true)} style={{ borderColor: '#4caf50', color: '#4caf50' }}>
+            <Printer size={18} style={{ marginRight: '5px' }} /> Imprimer
+          </button>
+          <button className="add-btn" onClick={() => {
+            if (showForm && editingId) {
+              setEditingId(null);
+              setFormData(initialFormState);
+            } else {
+              setShowForm(!showForm);
+            }
+          }}>
+            {showForm ? 'Annuler' : '+ Ajouter un Client'}
+          </button>
+        </div>
       </div>      {showForm && (
         <div className="modal-overlay">
           <div className="modal-content form-modal">
@@ -503,6 +675,19 @@ const Clients = () => {
                     <input type="number" value={formData.total} onChange={e => setFormData({...formData, total: e.target.value})} />
                   </div>
                   <div className="form-group">
+                    <label>Montant Payé</label>
+                    <input type="number" value={formData.montant_paye} onChange={e => setFormData({...formData, montant_paye: e.target.value})} />
+                  </div>
+                  <div className="form-group">
+                    <label>Reste à payer</label>
+                    <input 
+                      type="number" 
+                      value={((parseFloat(formData.total) || 0) - (parseFloat(formData.montant_paye) || 0)).toFixed(2)} 
+                      disabled 
+                      style={{ backgroundColor: '#f0f0f0', fontWeight: 'bold', color: ((parseFloat(formData.total) || 0) - (parseFloat(formData.montant_paye) || 0)) > 0 ? '#e74c3c' : '#2ecc71' }} 
+                    />
+                  </div>
+                  <div className="form-group">
                     <label>Statut Paiement</label>
                     <select 
                       value={formData.payment_status} 
@@ -510,11 +695,12 @@ const Clients = () => {
                     >
                       <option value="Unpaid">Impayé</option>
                       <option value="Paid">Payé</option>
+                      <option value="Partial">Partiellement payé</option>
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>Date de Paiement</label>
-                    <input type="date" value={formData.payment_date} onChange={e => setFormData({...formData, payment_date: e.target.value})} />
+                    <label>Date du prochain paiement</label>
+                    <input type="date" value={formData.date_prochain_paiement} onChange={e => setFormData({...formData, date_prochain_paiement: e.target.value})} />
                   </div>
                   <div className="form-group">
                     <label>Catégorie</label>
@@ -726,6 +912,12 @@ const Clients = () => {
                     </button>
                     {openDropdownId === client.id && (
                       <div className="dropdown-menu">
+                        <button onClick={() => {
+                          setPaymentModalClient(client);
+                          setOpenDropdownId(null);
+                        }} className="dropdown-item">
+                          <DollarSign size={16} style={{marginRight: '8px'}} /> Ajouter Versement
+                        </button>
                         <button onClick={() => handleView(client)} className="dropdown-item view">
                           <Eye size={16} style={{marginRight: '8px'}} /> Voir
                         </button>
@@ -830,6 +1022,88 @@ const Clients = () => {
                 }
               }}>Ajouter</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Print Monthly Clients Modal */}
+      {showPrintModal && (
+        <div className="modal-overlay">
+          <div className="modal-content confirm-modal animate-pop">
+            <div className="confirm-icon">🖨️</div>
+            <h2>Imprimer les clients</h2>
+            <p style={{ marginBottom: '15px' }}>Sélectionnez le mois d'ajout pour générer la liste des clients inscrits ce mois-ci :</p>
+            <input 
+              type="month" 
+              className="modal-input" 
+              style={{ width: '100%', padding: '10px', marginBottom: '20px', borderRadius: '5px', border: '1px solid #ccc' }}
+              value={printMonth}
+              onChange={(e) => setPrintMonth(e.target.value)}
+            />
+            <div className="confirm-actions">
+              <button className="cancel-btn" onClick={() => {
+                setShowPrintModal(false);
+                setPrintMonth('');
+              }}>Annuler</button>
+              <button className="save-btn" style={{ width: 'auto', padding: '10px 20px' }} onClick={generatePrintableList}>Générer & Imprimer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Payment Modal */}
+      {paymentModalClient && (
+        <div className="modal-overlay">
+          <div className="modal-content animate-pop" style={{ maxWidth: '400px' }}>
+            <div className="modal-header">
+              <h2 style={{ color: 'var(--primary-color)' }}>Ajouter un Versement</h2>
+              <button className="close-modal" onClick={() => setPaymentModalClient(null)}>&times;</button>
+            </div>
+            
+            <form onSubmit={handleAddPayment}>
+              <div className="form-group" style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Montant du Versement (DT)</label>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  required
+                  style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  placeholder={`Reste à payer: ${((parseFloat(paymentModalClient.total) || 0) - (parseFloat(paymentModalClient.montant_paye) || 0)).toFixed(2)} DT`}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Date de Versement</label>
+                <input 
+                  type="date" 
+                  required
+                  style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Méthode de Paiement</label>
+                <select 
+                  style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                >
+                  <option value="Espece">Espèce</option>
+                  <option value="Cheque">Chèque</option>
+                  <option value="Virement">Virement</option>
+                  <option value="Traite">Traite</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button type="button" className="cancel-btn" onClick={() => setPaymentModalClient(null)}>Annuler</button>
+                <button type="submit" className="save-btn" style={{ width: 'auto' }}>Enregistrer</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -1,17 +1,25 @@
 const db = require('../config/db');
 
 class Client {
-  static async getAll() {
-    const [rows] = await db.query(`
+  static async getAll(filters = {}) {
+    let query = `
       SELECT 
         clients.*,
         users.name AS creator_name
       FROM clients
       LEFT JOIN users 
         ON users.id = clients.created_by
-      ORDER BY clients.created_at DESC
-    `);
+    `;
+    const params = [];
 
+    if (filters.month) {
+      query += ` WHERE DATE_FORMAT(clients.created_at, '%Y-%m') = ?`;
+      params.push(filters.month);
+    }
+
+    query += ` ORDER BY clients.created_at DESC`;
+
+    const [rows] = await db.query(query, params);
     return rows;
   }
 
