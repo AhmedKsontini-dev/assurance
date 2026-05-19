@@ -64,6 +64,22 @@ class Expense {
     return result.affectedRows > 0;
   }
 
+  /**
+   * Get upcoming expenses within the next 3 days (excluding past dates)
+   * Used for Dashboard reminder banner
+   */
+  static async getUpcomingExpenses(userId) {
+    const [rows] = await db.query(
+      `SELECT * FROM expenses
+       WHERE user_id = ?
+         AND DATE(expense_date) >= CURDATE()
+         AND DATE(expense_date) <= DATE_ADD(CURDATE(), INTERVAL 3 DAY)
+       ORDER BY expense_date ASC`,
+      [userId]
+    );
+    return rows;
+  }
+
   static async getStatsByUserId(userId, filters = {}) {
     let dateCondition = '';
     let params = [userId];

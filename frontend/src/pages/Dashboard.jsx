@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { Calendar, XCircle, Bell, Clock, ChevronRight } from 'lucide-react';
+import { Calendar, XCircle, Bell, Clock, ChevronRight, AlertTriangle } from 'lucide-react';
 import CaisseSection from '../components/CaisseSection';
 
 const Dashboard = () => {
@@ -12,6 +12,7 @@ const Dashboard = () => {
   const [statsDate, setStatsDate] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [upcomingExpenses, setUpcomingExpenses] = useState([]);
   const [viewingClient, setViewingClient] = useState(null);
   const [viewingClientVersements, setViewingClientVersements] = useState([]);
 
@@ -31,6 +32,7 @@ const Dashboard = () => {
     if (user && user.id) {
       fetchAnalytics();
       fetchUpcomingEvents();
+      fetchUpcomingExpenses();
     }
   }, [user, statsDate]);
 
@@ -61,13 +63,22 @@ const Dashboard = () => {
       const filtered = allEvents.filter(event => {
         const eventDate = new Date(event.event_date);
         eventDate.setHours(0, 0, 0, 0);
-        // Show events from today up to 3 days in the future
         return eventDate >= today && eventDate <= threeDaysLater;
       }).sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
 
       setUpcomingEvents(filtered);
     } catch (err) {
       console.error('Failed to fetch events', err);
+    }
+  };
+
+  const fetchUpcomingExpenses = async () => {
+    try {
+      const res = await api.get('/expenses/upcoming');
+      setUpcomingExpenses(res.data.data.expenses || []);
+    } catch (err) {
+      // Non-admin users may not have access — silently ignore
+      console.warn('Could not fetch upcoming expenses (may not be admin):', err.message);
     }
   };
 
@@ -278,6 +289,106 @@ const Dashboard = () => {
                     </div>
                     <div style={{ fontSize: '0.8rem', color: '#64748b', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
                       Échéance : <strong>{new Date(client.date_prochain_paiement).toLocaleDateString('fr-FR')}</strong>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Upcoming Expenses Reminder Banner */}
+      {upcomingExpenses.length > 0 && (() => {
+        const todayDate = new Date();
+        todayDate.setHours(0, 0, 0, 0);
+        return (
+          <div style={{
+            background: 'linear-gradient(135deg, #fff 0%, #fff8f0 100%)',
+            borderRadius: '16px',
+            padding: '20px',
+            marginBottom: '30px',
+            borderLeft: '5px solid #f97316',
+            boxShadow: '0 10px 25px -5px rgba(249, 115, 22, 0.12)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '15px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ background: 'linear-gradient(135deg, #f97316, #ef4444)', padding: '8px', borderRadius: '10px' }}>
+                <AlertTriangle size={20} color="white" />
+              </div>
+              <div>
+                <h2 style={{ fontSize: '1.2rem', margin: 0, color: '#1e293b' }}>Rappels des dépenses à venir</h2>
+                <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: '#94a3b8' }}>
+                  {upcomingExpenses.length} dépense{upcomingExpenses.length > 1 ? 's' : ''} prévue{upcomingExpenses.length > 1 ? 's' : ''} dans les 3 prochains jours
+                </p>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+              {upcomingExpenses.map(expense => {
+                const expDate = new Date(expense.expense_date);
+                expDate.setHours(0, 0, 0, 0);
+                const diffDays = Math.round((expDate - todayDate) / (1000 * 60 * 60 * 24));
+
+                const isToday = diffDays === 0;
+                const badgeBg = isToday ? '#fee2e2' : diffDays === 1 ? '#ffedd5' : '#fef9c3';
+                const badgeColor = isToday ? '#dc2626' : diffDays === 1 ? '#ea580c' : '#ca8a04';
+                const badgeText = isToday ? "Aujourd'hui !" : diffDays === 1 ? 'Demain' : `Dans ${diffDays} jours`;
+
+                return (
+                  <div key={expense.id} style={{
+                    background: 'white',
+                    padding: '14px 16px',
+                    borderRadius: '12px',
+                    border: `1px solid ${isToday ? '#fecaca' : '#fed7aa'}`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                    boxShadow: '0 2px 8px rgba(249,115,22,0.04)',
+                    transition: 'transform 0.2s, box-shadow 0.2s'
+                  }}
+                  onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(249,115,22,0.1)'; }}
+                  onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(249,115,22,0.04)'; }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <span style={{
+                          display: 'inline-block',
+                          background: '#f1f5f9',
+                          color: '#475569',
+                          fontSize: '0.7rem',
+                          fontWeight: '700',
+                          padding: '2px 8px',
+                          borderRadius: '20px',
+                          marginBottom: '4px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em'
+                        }}>{expense.category}</span>
+                        <p style={{ margin: 0, fontWeight: '700', color: '#1e293b', fontSize: '0.95rem' }}>
+                          {expense.description || 'Sans description'}
+                        </p>
+                      </div>
+                      <span style={{
+                        fontSize: '0.72rem',
+                        padding: '4px 10px',
+                        borderRadius: '20px',
+                        background: badgeBg,
+                        color: badgeColor,
+                        fontWeight: '800',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                        marginLeft: '8px'
+                      }}>{badgeText}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '0.8rem' }}>
+                        <Calendar size={13} />
+                        <span>{new Date(expense.expense_date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                      </div>
+                      <span style={{ fontSize: '1.1rem', fontWeight: '800', color: isToday ? '#dc2626' : '#f97316' }}>
+                        {parseFloat(expense.amount).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} TND
+                      </span>
                     </div>
                   </div>
                 );

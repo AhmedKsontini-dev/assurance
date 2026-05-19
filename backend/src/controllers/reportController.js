@@ -78,56 +78,67 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
     );
     if (userRows.length === 0) return res.status(404).json({ status: 'fail', message: 'Employee not found' });
 
-    // Helper to get net caisse balance for a given SQL condition
-    const getCaisseNet = async (condition, params = []) => {
+    // Helper to get net caisse balance for a specific day only
+    // Only used for the "Aujourd'hui" card — other cards are NOT affected by caisse
+    const getTodayCaisseNet = async () => {
       const query = `
         SELECT 
           COALESCE(SUM(CASE WHEN type = 'INCOME' THEN montant ELSE 0 END), 0) -
           COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN montant ELSE 0 END), 0) as net
         FROM caisse_entries 
-        WHERE user_id = ? AND ${condition}
+        WHERE user_id = ? AND DATE(date_operation) = CURDATE()
       `;
-      const [rows] = await db.query(query, [userId, ...params]);
+      const [rows] = await db.query(query, [userId]);
+      return parseFloat(rows[0].net || 0);
+    };
+
+    // Helper to get caisse net for a custom date (used in custom date card only)
+    const getCustomDayCaisseNet = async (date) => {
+      const query = `
+        SELECT 
+          COALESCE(SUM(CASE WHEN type = 'INCOME' THEN montant ELSE 0 END), 0) -
+          COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN montant ELSE 0 END), 0) as net
+        FROM caisse_entries 
+        WHERE user_id = ? AND DATE(date_operation) = ?
+      `;
+      const [rows] = await db.query(query, [userId, date]);
       return parseFloat(rows[0].net || 0);
     };
 
     // 2. Financial Summary
-    // Today
+    // Today: client contracts created today + caisse net of today (ONLY card affected by caisse)
     const [todayClientStats] = await db.query(
       'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as amount FROM clients WHERE created_by = ? AND DATE(created_at) = CURDATE()',
       [userId]
     );
-    const todayCaisseNet = await getCaisseNet('DATE(date_operation) = CURDATE()');
+    const todayCaisseNet = await getTodayCaisseNet();
     
-    // Week
+    // Week: client contracts only — NOT affected by caisse
     const [weekClientStats] = await db.query(
       'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as amount FROM clients WHERE created_by = ? AND YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)',
       [userId]
     );
-    const weekCaisseNet = await getCaisseNet('YEARWEEK(date_operation, 1) = YEARWEEK(CURDATE(), 1)');
 
-    // Month
+    // Month: client contracts only — NOT affected by caisse
     const [monthClientStats] = await db.query(
       'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as amount FROM clients WHERE created_by = ? AND MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE())',
       [userId]
     );
-    const monthCaisseNet = await getCaisseNet('MONTH(date_operation) = MONTH(CURDATE()) AND YEAR(date_operation) = YEAR(CURDATE())');
 
-    // Overall
+    // Overall: client contracts only — NOT affected by caisse
     const [overallClientStats] = await db.query(
       'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as amount FROM clients WHERE created_by = ?',
       [userId]
     );
-    const overallCaisseNet = await getCaisseNet('1=1');
 
-    // Custom Date Stats
+    // Custom Date Stats: includes caisse net for that specific day
     let customDateStats = null;
     if (statsDate) {
       const [customRows] = await db.query(
         'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as amount FROM clients WHERE created_by = ? AND DATE(created_at) = ?',
         [userId, statsDate]
       );
-      const customCaisseNet = await getCaisseNet('DATE(date_operation) = ?', [statsDate]);
+      const customCaisseNet = await getCustomDayCaisseNet(statsDate);
       
       customDateStats = {
         count: customRows[0].count,
@@ -160,21 +171,23 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
       data: {
         employee: userRows[0],
         financials: {
+          // "Aujourd'hui" = client contracts of the day + caisse net of the day
           today: {
             count: todayClientStats[0].count,
             amount: parseFloat(todayClientStats[0].amount) + todayCaisseNet
           },
+          // "Cette semaine", "Ce mois", "Globale" = client contracts only, caisse-independent
           week: {
             count: weekClientStats[0].count,
-            amount: parseFloat(weekClientStats[0].amount) + weekCaisseNet
+            amount: parseFloat(weekClientStats[0].amount)
           },
           month: {
             count: monthClientStats[0].count,
-            amount: parseFloat(monthClientStats[0].amount) + monthCaisseNet
+            amount: parseFloat(monthClientStats[0].amount)
           },
           overall: {
             count: overallClientStats[0].count,
-            amount: parseFloat(overallClientStats[0].amount) + overallCaisseNet
+            amount: parseFloat(overallClientStats[0].amount)
           },
           custom: customDateStats
         },

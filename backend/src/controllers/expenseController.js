@@ -85,3 +85,21 @@ exports.getExpenseStats = async (req, res, next) => {
     next(err);
   }
 };
+
+/**
+ * GET /api/expenses/upcoming
+ * Returns expenses with expense_date between today and today+3 days
+ * Used for Dashboard reminder banner
+ */
+exports.getUpcomingExpenses = async (req, res, next) => {
+  try {
+    const expenses = await Expense.getUpcomingExpenses(req.user.id);
+    res.status(200).json({
+      status: 'success',
+      results: expenses.length,
+      data: { expenses }
+    });
+  } catch (err) {
+    next(err);
+  }
+};

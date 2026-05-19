@@ -12,6 +12,7 @@ router.use(restrictTo('ADMIN'));
 router.get('/', expenseController.getExpenses);
 router.post('/', expenseController.createExpense);
 router.get('/stats', expenseController.getExpenseStats);
+router.get('/upcoming', expenseController.getUpcomingExpenses);
 
 router.use('/:id', verifyExpenseOwnership);
 router.route('/:id')
