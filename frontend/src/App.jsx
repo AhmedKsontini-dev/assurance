@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
@@ -19,6 +19,34 @@ import './pages/Renewal.css';
 const AppLayout = ({ children }) => {
   const [showAccessDenied, setShowAccessDenied] = useState(false);
   const [deniedMessage, setDeniedMessage] = useState('');
+  const location = useLocation();
+
+  // Sidebar toggle state (desktop collapse)
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebar-collapsed');
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  // Mobile drawer open state
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  // Sync collapse state with localStorage
+  useEffect(() => {
+    localStorage.setItem('sidebar-collapsed', JSON.stringify(isCollapsed));
+  }, [isCollapsed]);
+
+  // Close mobile drawer on route change
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [location.pathname]);
+
+  const toggleSidebar = () => {
+    if (window.innerWidth <= 768) {
+      setIsMobileOpen(!isMobileOpen);
+    } else {
+      setIsCollapsed(!isCollapsed);
+    }
+  };
 
   useEffect(() => {
     const handleUnauthorized = (e) => {
@@ -31,10 +59,13 @@ const AppLayout = ({ children }) => {
   }, []);
 
   return (
-    <div className="app-container">
-      <Navbar />
+    <div className={`app-container ${isCollapsed ? 'sidebar-collapsed' : ''}`}>
+      <Navbar toggleSidebar={toggleSidebar} isCollapsed={isCollapsed} isMobileOpen={isMobileOpen} />
       <div className="main-layout">
-        <Sidebar />
+        <Sidebar isCollapsed={isCollapsed} isMobileOpen={isMobileOpen} toggleSidebar={toggleSidebar} />
+        {isMobileOpen && (
+          <div className="sidebar-overlay" onClick={() => setIsMobileOpen(false)}></div>
+        )}
         <main className="main-content">
           {children}
         </main>

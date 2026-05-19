@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { Bell } from 'lucide-react';
+import { Bell, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import api from '../services/api';
 import logo from '../assets/Logo CTAMA bleu.jpg';
 
-const Navbar = () => {
+const Navbar = ({ toggleSidebar, isCollapsed, isMobileOpen }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [alertCount, setAlertCount] = useState(0);
@@ -72,9 +72,20 @@ const Navbar = () => {
 
   return (
     <nav className="navbar">
-      <div className="navbar-brand" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <img src={logo} alt="CTAMA Logo" style={{ height: '60px', borderRadius: '30px' }} />
-        CTAMA
+      <div className="navbar-brand-container" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+        <button className="sidebar-toggle-btn" onClick={toggleSidebar} title={isCollapsed ? "Agrandir le menu" : "Réduire le menu"}>
+          {isMobileOpen ? (
+            <X size={22} />
+          ) : isCollapsed ? (
+            <ChevronRight size={22} />
+          ) : (
+            <ChevronLeft size={22} />
+          )}
+        </button>
+        <div className="navbar-brand" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <img src={logo} alt="CTAMA Logo" style={{ height: '60px', borderRadius: '30px' }} />
+          <span className="brand-text">CTAMA</span>
+        </div>
       </div>
       <div className="navbar-user">
         {/* Notification Bell */}
