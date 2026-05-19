@@ -28,7 +28,7 @@ const initDB = async () => {
       paiement VARCHAR(50),
       montant DECIMAL(10, 2),
       reduction DECIMAL(10, 2),
-      rc DECIMAL(10, 2),
+      rc VARCHAR(100),
       papier VARCHAR(255),
       usage_vehicle VARCHAR(100),
       immatriculation VARCHAR(50),

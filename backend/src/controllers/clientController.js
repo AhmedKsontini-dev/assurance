@@ -1,5 +1,6 @@
 const Client = require('../models/clientModel');
 const Renewal = require('../models/renewalModel');
+const Versement = require('../models/versementModel');
 const logger = require('../utils/logger');
 
 exports.getAllClients = async (req, res, next) => {
@@ -179,3 +180,83 @@ exports.getRenewalStats = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.addClientVersement = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { montant, date_versement, methode_paiement } = req.body;
+
+    if (!montant || isNaN(montant) || parseFloat(montant) <= 0) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Montant du versement invalide'
+      });
+    }
+
+    const client = await Client.getById(id);
+    if (!client) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Client non trouvé'
+      });
+    }
+
+    // Create the versement record
+    const versementId = await Versement.create({
+      client_id: id,
+      montant: parseFloat(montant),
+      date_versement: date_versement || new Date().toISOString().split('T')[0],
+      methode_paiement: methode_paiement || 'Espece'
+    });
+
+    // Calculate new montant_paye
+    const currentPaid = parseFloat(client.montant_paye || 0);
+    const newPaid = currentPaid + parseFloat(montant);
+    const total = parseFloat(client.total || 0);
+
+    let payment_status = 'Unpaid';
+    if (newPaid >= total) {
+      payment_status = 'Paid';
+    } else if (newPaid > 0) {
+      payment_status = 'Partial';
+    }
+
+    const updateData = {
+      montant_paye: newPaid,
+      payment_status,
+      payment_date: payment_status === 'Paid' ? (date_versement || new Date().toISOString().split('T')[0]) : client.payment_date
+    };
+
+    await Client.update(id, updateData);
+
+    // Log activity
+    await logger.logActivity(
+      req.user.id,
+      'UPDATE',
+      id,
+      `Versement ajouté: ${montant} DT pour client ID: ${id}`
+    );
+
+    res.status(201).json({
+      status: 'success',
+      message: 'Versement enregistré avec succès',
+      versementId
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getClientVersements = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const versements = await Versement.getByClientId(id);
+    res.status(200).json({
+      status: 'success',
+      data: versements
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+

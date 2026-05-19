@@ -22,4 +22,8 @@ router.post('/:id/renew', authMiddleware.checkPermission('edit'), clientControll
 router.get('/:id/renewals', clientController.getClientRenewals);
 router.get('/renew-stats', authMiddleware.checkPermission('admin'), clientController.getRenewalStats);
 
+// Client versements routes
+router.post('/:id/versements', authMiddleware.checkPermission('edit'), clientController.addClientVersement);
+router.get('/:id/versements', clientController.getClientVersements);
+
 module.exports = router;
