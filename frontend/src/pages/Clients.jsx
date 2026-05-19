@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Eye, Edit, Trash2, RefreshCw, Filter, CheckCircle, XCircle, DollarSign, Plus, Printer } from 'lucide-react';
+import { Eye, Edit, Trash2, RefreshCw, Filter, CheckCircle, XCircle, DollarSign, Plus, Printer, AlertCircle } from 'lucide-react';
 import RenewalModal from '../components/RenewalModal';
 
 const Clients = () => {
@@ -158,10 +158,35 @@ const Clients = () => {
 
   const togglePaymentStatus = async (client) => {
     try {
-      const newStatus = client.payment_status === 'Paid' ? 'Unpaid' : 'Paid';
+      let newStatus;
+      let newPaidAmount = client.montant_paye;
+      let newPaymentDate = client.payment_date;
+
+      const currentStatus = client.payment_status || 'Unpaid';
+      const totalVal = parseFloat(client.total) || 0;
+
+      if (currentStatus === 'Unpaid') {
+        newStatus = 'Partial';
+        const currentPaid = parseFloat(client.montant_paye) || 0;
+        if (currentPaid <= 0 || currentPaid >= totalVal) {
+          newPaidAmount = totalVal / 2;
+        } else {
+          newPaidAmount = currentPaid;
+        }
+      } else if (currentStatus === 'Partial') {
+        newStatus = 'Paid';
+        newPaidAmount = totalVal;
+        newPaymentDate = new Date().toLocaleDateString('en-CA');
+      } else { // Paid
+        newStatus = 'Unpaid';
+        newPaidAmount = 0;
+        newPaymentDate = null;
+      }
+
       const updateData = { 
         payment_status: newStatus,
-        payment_date: newStatus === 'Paid' ? new Date().toLocaleDateString('en-CA') : null
+        montant_paye: newPaidAmount,
+        payment_date: newPaymentDate
       };
       
       await api.put(`/clients/${client.id}`, updateData);
@@ -585,6 +610,9 @@ const Clients = () => {
               <span className="pill unpaid">
                 {filteredClients.filter(c => c.payment_status === 'Unpaid' || !c.payment_status).length} Impayé
               </span>
+              <span className="pill partial">
+                {filteredClients.filter(c => c.payment_status === 'Partial').length} Partiellement payé
+              </span>
             </div>
           </div>
         )}
@@ -603,11 +631,25 @@ const Clients = () => {
             {showForm ? 'Annuler' : '+ Ajouter un Client'}
           </button>
         </div>
-      </div>      {showForm && (
+      </div>
+
+      {showForm && (
         <div className="modal-overlay">
-          <div className="modal-content form-modal">
-            <div className="modal-header">
-              <h2>{editingId ? 'Modifier un Client' : 'Nouveau Client'}</h2>
+          <div className="modal-content form-modal" style={{ maxWidth: '750px' }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ background: 'linear-gradient(135deg, #3b82f6, #6366f1)', borderRadius: '10px', padding: '10px', display: 'flex' }}>
+                  <span style={{ fontSize: '20px' }}>{editingId ? '✏️' : '👤'}</span>
+                </div>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '1.3rem', color: '#1e293b' }}>
+                    {editingId ? 'Modifier le Client' : 'Nouveau Client'}
+                  </h2>
+                  <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748b' }}>
+                    {editingId ? 'Mettez à jour les informations du client' : 'Remplissez les informations pour ajouter un client'}
+                  </p>
+                </div>
+              </div>
               <button className="close-modal" onClick={() => {
                 setShowForm(false);
                 setEditingId(null);
@@ -616,157 +658,269 @@ const Clients = () => {
             </div>
             <div className="modal-body">
               <form className="add-form-expanded" onSubmit={handleSubmit}>
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label>Police</label>
-                    <input value={formData.police} onChange={e => setFormData({...formData, police: e.target.value})} required />
+
+                {/* ── Section 1 : Informations Client ── */}
+                <div className="cf-section">
+                  <div className="cf-section-header" style={{ background: 'linear-gradient(135deg, #eff6ff, #dbeafe)' }}>
+                    <span className="cf-section-icon">👤</span>
+                    <span className="cf-section-title">Informations Client</span>
                   </div>
-                  <div className="form-group">
-                    <label>Societaire</label>
-                    <input value={formData.societaire} onChange={e => setFormData({...formData, societaire: e.target.value})} required />
-                  </div>
-                  <div className="form-group">
-                    <label>Adresse</label>
-                    <input value={formData.adresse} onChange={e => setFormData({...formData, adresse: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label>Telephone</label>
-                    <input value={formData.tel} onChange={e => setFormData({...formData, tel: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label>Paiement</label>
-                    <select 
-                      value={formData.paiement} 
-                      onChange={e => setFormData({...formData, paiement: e.target.value})}
-                    >
-                      <option value="">Sélectionner...</option>
-                      <option value="Cheque">Cheque</option>
-                      <option value="Espece">Espece</option>
-                      <option value="Virement">Virement</option>
-                      <option value="Kembyela">Kembyela</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Montant</label>
-                    <input 
-                      type="number" 
-                      value={formData.montant} 
-                      onChange={e => {
-                        const m = e.target.value;
-                        const r = formData.reduction || 0;
-                        const t = m ? (parseFloat(m) - parseFloat(r)) : 0;
-                        setFormData({
-                          ...formData,
-                          montant: m,
-                          total: isNaN(t) ? '' : t.toString()
-                        });
-                      }} 
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Reduction</label>
-                    <input 
-                      type="number" 
-                      value={formData.reduction} 
-                      onChange={e => {
-                        const r = e.target.value;
-                        const m = formData.montant || 0;
-                        const t = m ? (parseFloat(m) - parseFloat(r || 0)) : 0;
-                        setFormData({
-                          ...formData,
-                          reduction: r,
-                          total: isNaN(t) ? '' : t.toString()
-                        });
-                      }} 
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>RC</label>
-                    <input type="text" value={formData.rc} onChange={e => setFormData({...formData, rc: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label>Papier</label>
-                    <input value={formData.papier} onChange={e => setFormData({...formData, papier: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label>Usage Vehicle</label>
-                    <input value={formData.usage_vehicle} onChange={e => setFormData({...formData, usage_vehicle: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label>Immatriculation</label>
-                    <input value={formData.immatriculation} onChange={e => setFormData({...formData, immatriculation: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label>Date d'effet</label>
-                    <input type="date" value={formData.date_effet} onChange={e => setFormData({...formData, date_effet: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label>Date d'expiration</label>
-                    <input type="date" value={formData.date_expiration} onChange={e => setFormData({...formData, date_expiration: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label>Total</label>
-                    <input 
-                      type="number" 
-                      value={formData.total} 
-                      readOnly 
-                      style={{ backgroundColor: '#f0f0f0', fontWeight: 'bold' }} 
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Montant Payé</label>
-                    <input type="number" value={formData.montant_paye} onChange={e => setFormData({...formData, montant_paye: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label>Reste à payer</label>
-                    <input 
-                      type="number" 
-                      value={((parseFloat(formData.total) || 0) - (parseFloat(formData.montant_paye) || 0)).toFixed(2)} 
-                      disabled 
-                      style={{ backgroundColor: '#f0f0f0', fontWeight: 'bold', color: ((parseFloat(formData.total) || 0) - (parseFloat(formData.montant_paye) || 0)) > 0 ? '#e74c3c' : '#2ecc71' }} 
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Statut Paiement</label>
-                    <select 
-                      value={formData.payment_status} 
-                      onChange={e => setFormData({...formData, payment_status: e.target.value})}
-                    >
-                      <option value="Unpaid">Impayé</option>
-                      <option value="Paid">Payé</option>
-                      <option value="Partial">Partiellement payé</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Date du prochain paiement</label>
-                    <input type="date" value={formData.date_prochain_paiement} onChange={e => setFormData({...formData, date_prochain_paiement: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label>Catégorie</label>
-                    <div className="category-input-container">
-                      <select 
-                        value={formData.category} 
-                        onChange={e => setFormData({...formData, category: e.target.value})}
-                      >
-                        <option value="">Sélectionner une catégorie...</option>
-                        {categories.map(cat => (
-                          <option key={cat.id} value={cat.name}>{cat.name}</option>
-                        ))}
-                      </select>
-                      <button 
-                        type="button" 
-                        className="add-category-btn"
-                        onClick={() => setShowCategoryModal(true)}
-                        title="Ajouter une nouvelle catégorie"
-                      >
-                        <Plus size={18} />
-                      </button>
+                  <div className="cf-grid cf-grid-3">
+                    <div className="form-group cf-required">
+                      <label>Numéro de Police</label>
+                      <input
+                        value={formData.police}
+                        onChange={e => setFormData({...formData, police: e.target.value})}
+                        placeholder="Ex: POL-2024-001"
+                        required
+                      />
+                    </div>
+                    <div className="form-group cf-required cf-span2">
+                      <label>Nom du Sociétaire</label>
+                      <input
+                        value={formData.societaire}
+                        onChange={e => setFormData({...formData, societaire: e.target.value})}
+                        placeholder="Prénom et Nom"
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Téléphone</label>
+                      <input
+                        value={formData.tel}
+                        onChange={e => setFormData({...formData, tel: e.target.value})}
+                        placeholder="+216 XX XXX XXX"
+                      />
+                    </div>
+                    <div className="form-group cf-span2">
+                      <label>Adresse</label>
+                      <input
+                        value={formData.adresse}
+                        onChange={e => setFormData({...formData, adresse: e.target.value})}
+                        placeholder="Adresse complète"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Catégorie</label>
+                      <div className="category-input-container">
+                        <select
+                          value={formData.category}
+                          onChange={e => setFormData({...formData, category: e.target.value})}
+                        >
+                          <option value="">Sélectionner...</option>
+                          {categories.map(cat => (
+                            <option key={cat.id} value={cat.name}>{cat.name}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className="add-category-btn"
+                          onClick={() => setShowCategoryModal(true)}
+                          title="Ajouter une nouvelle catégorie"
+                        >
+                          <Plus size={18} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <button type="submit" className="save-btn">
-                  {editingId ? 'Modifier' : 'Sauvegarder Client'}
-                </button>
+
+                {/* ── Section 2 : Véhicule & Contrat ── */}
+                <div className="cf-section">
+                  <div className="cf-section-header" style={{ background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)' }}>
+                    <span className="cf-section-icon">🚗</span>
+                    <span className="cf-section-title">Véhicule & Contrat</span>
+                  </div>
+                  <div className="cf-grid cf-grid-3">
+                    <div className="form-group">
+                      <label>Immatriculation</label>
+                      <input
+                        value={formData.immatriculation}
+                        onChange={e => setFormData({...formData, immatriculation: e.target.value})}
+                        placeholder="Ex: 123 TU 456"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Usage Véhicule</label>
+                      <input
+                        value={formData.usage_vehicle}
+                        onChange={e => setFormData({...formData, usage_vehicle: e.target.value})}
+                        placeholder="Ex: Particulier, Taxi..."
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>RC</label>
+                      <input
+                        type="text"
+                        value={formData.rc}
+                        onChange={e => setFormData({...formData, rc: e.target.value})}
+                        placeholder="Responsabilité Civile"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Papier</label>
+                      <input
+                        value={formData.papier}
+                        onChange={e => setFormData({...formData, papier: e.target.value})}
+                        placeholder="Type de document"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Date d'effet</label>
+                      <input
+                        type="date"
+                        value={formData.date_effet}
+                        onChange={e => setFormData({...formData, date_effet: e.target.value})}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Date d'expiration</label>
+                      <input
+                        type="date"
+                        value={formData.date_expiration}
+                        onChange={e => setFormData({...formData, date_expiration: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Section 3 : Tarification ── */}
+                <div className="cf-section">
+                  <div className="cf-section-header" style={{ background: 'linear-gradient(135deg, #fffbeb, #fef3c7)' }}>
+                    <span className="cf-section-icon">💰</span>
+                    <span className="cf-section-title">Tarification</span>
+                  </div>
+                  <div className="cf-grid cf-grid-3">
+                    <div className="form-group">
+                      <label>Montant (Hors Réduction)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.montant}
+                        onChange={e => {
+                          const m = e.target.value;
+                          const r = formData.reduction || 0;
+                          const t = m ? (parseFloat(m) - parseFloat(r)) : 0;
+                          setFormData({ ...formData, montant: m, total: isNaN(t) ? '' : t.toString() });
+                        }}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Réduction (DT)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.reduction}
+                        onChange={e => {
+                          const r = e.target.value;
+                          const m = formData.montant || 0;
+                          const t = m ? (parseFloat(m) - parseFloat(r || 0)) : 0;
+                          setFormData({ ...formData, reduction: r, total: isNaN(t) ? '' : t.toString() });
+                        }}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Total Net (calculé)</label>
+                      <input
+                        type="number"
+                        value={formData.total}
+                        readOnly
+                        style={{ background: '#f1f5f9', fontWeight: '700', color: '#1e293b', cursor: 'not-allowed' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Section 4 : Paiement ── */}
+                <div className="cf-section">
+                  <div className="cf-section-header" style={{ background: 'linear-gradient(135deg, #fdf4ff, #f3e8ff)' }}>
+                    <span className="cf-section-icon">💳</span>
+                    <span className="cf-section-title">Paiement</span>
+                  </div>
+                  <div className="cf-grid cf-grid-3">
+                    <div className="form-group">
+                      <label>Mode de Règlement</label>
+                      <select
+                        value={formData.paiement}
+                        onChange={e => setFormData({...formData, paiement: e.target.value})}
+                      >
+                        <option value="">Sélectionner...</option>
+                        <option value="Cheque">Chèque</option>
+                        <option value="Espece">Espèce</option>
+                        <option value="Virement">Virement</option>
+                        <option value="Kembyela">Kembyela</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Montant Payé (DT)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.montant_paye}
+                        onChange={e => setFormData({...formData, montant_paye: e.target.value})}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Reste à Payer</label>
+                      <input
+                        type="number"
+                        value={((parseFloat(formData.total) || 0) - (parseFloat(formData.montant_paye) || 0)).toFixed(2)}
+                        disabled
+                        style={{
+                          background: '#f1f5f9',
+                          fontWeight: '700',
+                          cursor: 'not-allowed',
+                          color: ((parseFloat(formData.total) || 0) - (parseFloat(formData.montant_paye) || 0)) > 0 ? '#dc2626' : '#16a34a'
+                        }}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Statut de Paiement</label>
+                      <select
+                        value={formData.payment_status}
+                        onChange={e => setFormData({...formData, payment_status: e.target.value})}
+                      >
+                        <option value="Unpaid">❌ Impayé</option>
+                        <option value="Partial">⚠️ Partiellement payé</option>
+                        <option value="Paid">✅ Payé</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Date du Paiement</label>
+                      <input
+                        type="date"
+                        value={formData.payment_date}
+                        onChange={e => setFormData({...formData, payment_date: e.target.value})}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Date du Prochain Paiement</label>
+                      <input
+                        type="date"
+                        value={formData.date_prochain_paiement}
+                        onChange={e => setFormData({...formData, date_prochain_paiement: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Footer Actions ── */}
+                <div className="cf-footer">
+                  <button
+                    type="button"
+                    className="cancel-btn"
+                    onClick={() => { setShowForm(false); setEditingId(null); setFormData(initialFormState); }}
+                  >
+                    Annuler
+                  </button>
+                  <button type="submit" className="save-btn">
+                    {editingId ? '✏️ Enregistrer les modifications' : '✅ Sauvegarder le Client'}
+                  </button>
+                </div>
+
               </form>
             </div>
           </div>
@@ -972,8 +1126,6 @@ const Clients = () => {
               <th>Sociétaire</th>
               <th>Adresse</th>
               <th>Téléphone</th>
-              <th>Montant</th>
-              <th>Réduction</th>
               <th>Immatriculation</th>
               <th>Date d'effet</th>
               <th>Date d'expiration</th>
@@ -1004,8 +1156,7 @@ const Clients = () => {
                 <td>{client.societaire}</td>
                 <td>{client.adresse || '-'}</td>
                 <td>{client.tel || '-'}</td>
-                <td className="amount">{client.montant !== null && client.montant !== undefined ? `${client.montant} DT` : '-'}</td>
-                <td className="amount">{client.reduction !== null && client.reduction !== undefined ? `${client.reduction} DT` : '-'}</td>
+               
                 <td>{client.immatriculation || '-'}</td>
                 <td>{client.date_effet ? new Date(client.date_effet).toLocaleDateString() : '-'}</td>
                 <td className={(() => {
@@ -1047,10 +1198,12 @@ const Clients = () => {
                   <button 
                     onClick={() => togglePaymentStatus(client)}
                     className={`payment-toggle-btn ${statusClass}`}
-                    title={paymentStatusStr === 'Payé' ? 'Marquer comme Impayé' : 'Marquer comme Payé'}
+                    title={`Statut actuel: ${paymentStatusStr}. Cliquer pour changer.`}
                   >
-                    {paymentStatusStr === 'Payé' ? (
+                    {client.payment_status === 'Paid' ? (
                       <CheckCircle size={20} />
+                    ) : client.payment_status === 'Partial' ? (
+                      <AlertCircle size={20} />
                     ) : (
                       <XCircle size={20} />
                     )}

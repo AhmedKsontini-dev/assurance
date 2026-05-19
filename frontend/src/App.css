@@ -2851,8 +2851,8 @@ tr:hover td {
 }
 
 .detail-badge.warning {
-  background-color: #fef3c7;
-  color: #92400e;
+  background-color: #ffedd5;
+  color: #c2410c;
 }
 
 .detail-badge.danger {
@@ -2902,4 +2902,174 @@ tr:hover td {
   color: #94a3b8;
   font-style: italic;
   font-size: 0.9rem;
+}
+
+/* ═══════════════════════════════════════════
+   CLIENT FORM — Sectioned Layout (cf-*)
+═══════════════════════════════════════════ */
+
+.add-form-expanded {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Section card */
+.cf-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+
+/* Section colored header */
+.cf-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 18px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.cf-section-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.cf-section-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+/* 3-column grid inside each section */
+.cf-grid {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  background: #ffffff;
+}
+
+.cf-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* Span 2 columns */
+.cf-span2 {
+  grid-column: span 2;
+}
+
+/* Required field — red dot on label */
+.cf-required label::after {
+  content: ' *';
+  color: #ef4444;
+  font-weight: 700;
+}
+
+/* Form group inside sections */
+.cf-section .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cf-section .form-group label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cf-section .form-group input,
+.cf-section .form-group select,
+.cf-section .form-group textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #1e293b;
+  background: #f8fafc;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+
+.cf-section .form-group input:focus,
+.cf-section .form-group select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+  background: #fff;
+}
+
+.cf-section .form-group input[readonly],
+.cf-section .form-group input:disabled {
+  opacity: 0.85;
+}
+
+/* Footer actions row */
+.cf-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0 2px;
+  margin-top: 4px;
+}
+
+.cf-footer .cancel-btn {
+  padding: 10px 22px;
+  border-radius: 8px;
+  border: 1.5px solid #cbd5e1;
+  background: white;
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cf-footer .cancel-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.cf-footer .save-btn {
+  padding: 10px 26px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  color: white;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+  transition: all 0.2s;
+}
+
+.cf-footer .save-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(99,102,241,0.4);
+}
+
+/* Responsive: 2 columns on smaller screens */
+@media (max-width: 640px) {
+  .cf-grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .cf-span2 {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 420px) {
+  .cf-grid-3 {
+    grid-template-columns: 1fr;
+  }
+  .cf-span2 {
+    grid-column: span 1;
+  }
 }

@@ -70,6 +70,9 @@ exports.updateClient = async (req, res, next) => {
       });
     }
 
+    // Recalculate next payment date in case they edited payment details
+    await recalculateNextPaymentDate(req.params.id);
+
     await logger.logActivity(
       req.user.id, 
       'UPDATE', 
@@ -120,7 +123,16 @@ exports.renewClientSubscription = async (req, res, next) => {
       plan_duration, 
       notes, 
       status,
-      old_expiration_date 
+      old_expiration_date,
+      montant,
+      reduction,
+      total,
+      paiement,
+      payment_status,
+      payment_date,
+      montant_paye,
+      date_prochain_paiement,
+      versements
     } = req.body;
 
     // 1. Create renewal history record
@@ -134,11 +146,46 @@ exports.renewClientSubscription = async (req, res, next) => {
       status
     });
 
-    // 2. If accepted or refused, update the client's expiration date or status
+    // 2. If accepted, update the client's expiration date, status and payment details
     const updateData = { renewal_status: status };
     if (status === 'Accepted') {
       updateData.date_expiration = new_expiration_date;
+      updateData.date_effet = old_expiration_date; // Le renouvellement commence à la date d'expiration précédente
+      
+      if (montant !== undefined) updateData.montant = montant;
+      if (reduction !== undefined) updateData.reduction = reduction;
+      if (total !== undefined) updateData.total = total;
+      if (paiement !== undefined) updateData.paiement = paiement;
+      if (payment_status !== undefined) updateData.payment_status = payment_status;
+      if (payment_date !== undefined) updateData.payment_date = payment_date;
+      if (montant_paye !== undefined) updateData.montant_paye = montant_paye;
+      if (date_prochain_paiement !== undefined) {
+        updateData.date_prochain_paiement = date_prochain_paiement;
+      } else {
+        updateData.date_prochain_paiement = null;
+      }
+
+      // 2b. Add multiple versements if provided
+      if (versements && Array.isArray(versements)) {
+        for (const v of versements) {
+          if (v.montant && parseFloat(v.montant) > 0) {
+            await Versement.create({
+              client_id: id,
+              montant: parseFloat(v.montant),
+              date_versement: v.date_versement || new Date().toISOString().split('T')[0],
+              methode_paiement: v.methode_paiement || paiement || 'Espece'
+            });
+          }
+        }
+      }
+
+      // Recalculate next payment date
+      await recalculateNextPaymentDate(id);
+    } else {
+      // If Refused or Follow-up, update the status
+      // We could keep date_expiration and other values intact
     }
+    
     await Client.update(id, updateData);
 
     // 3. Log activity
@@ -231,6 +278,9 @@ exports.addClientVersement = async (req, res, next) => {
 
     await Client.update(id, updateData);
 
+    // Recalculate next payment date
+    await recalculateNextPaymentDate(id);
+
     // Log activity
     await logger.logActivity(
       req.user.id,
@@ -262,3 +312,60 @@ exports.getClientVersements = async (req, res, next) => {
   }
 };
 
+/**
+ * Recalculate and persist the next unpaid installment date for a client.
+ * Logic:
+ *   1. Fetch all versements sorted by date ASC.
+ *   2. Walk through them cumulatively until the running total exceeds montant_paye.
+ *   3. The versement where the threshold is crossed = next date to show.
+ *   4. If fully paid → clear date_prochain_paiement.
+ */
+async function recalculateNextPaymentDate(clientId) {
+  try {
+    const client = await Client.getById(clientId);
+    if (!client) return null;
+
+    const total      = parseFloat(client.total       || 0);
+    const montantPaye = parseFloat(client.montant_paye || 0);
+
+    // Fully paid — no next date needed
+    if (montantPaye >= total && total > 0) {
+      await Client.update(clientId, { date_prochain_paiement: null });
+      return null;
+    }
+
+    const versements = await Versement.getByClientId(clientId);
+    if (!versements || versements.length === 0) {
+      // No installments recorded — keep whatever date is already set
+      return client.date_prochain_paiement;
+    }
+
+    // Sort ascending by installment date
+    const sorted = [...versements].sort(
+      (a, b) => new Date(a.date_versement) - new Date(b.date_versement)
+    );
+
+    let cumulative = 0;
+    let nextDate   = null;
+
+    for (const v of sorted) {
+      cumulative += parseFloat(v.montant || 0);
+      if (montantPaye < cumulative) {
+        nextDate = v.date_versement;
+        break;
+      }
+    }
+
+    if (nextDate) {
+      const formatted = new Date(nextDate).toISOString().split('T')[0];
+      await Client.update(clientId, { date_prochain_paiement: formatted });
+      return formatted;
+    } else {
+      await Client.update(clientId, { date_prochain_paiement: null });
+      return null;
+    }
+  } catch (err) {
+    console.error('[recalculateNextPaymentDate] Erreur:', err);
+    return null;
+  }
+}
