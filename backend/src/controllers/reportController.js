@@ -147,14 +147,33 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
     }
 
     // 3. Clients List (Filtered by statsDate if provided)
-    let clientQuery = 'SELECT * FROM clients WHERE created_by = ?';
-    let clientParams = [userId];
-    if (statsDate) {
-      clientQuery += ' AND DATE(created_at) = ?';
-      clientParams.push(statsDate);
+    // For ADMIN and EMPLOYEE roles, show ALL clients, not just those created by the user
+    const userRole = userRows[0].role;
+    let clientQuery, clientParams;
+    
+    if (userRole === 'ADMIN' || userRole === 'EMPLOYEE') {
+      // Show all clients for admin and employee
+      clientQuery = 'SELECT * FROM clients';
+      clientParams = [];
+      if (statsDate) {
+        clientQuery += ' WHERE DATE(created_at) = ?';
+        clientParams.push(statsDate);
+      }
+    } else {
+      // Show only own clients for other roles
+      clientQuery = 'SELECT * FROM clients WHERE created_by = ?';
+      clientParams = [userId];
+      if (statsDate) {
+        clientQuery += ' AND DATE(created_at) = ?';
+        clientParams.push(statsDate);
+      }
     }
     clientQuery += ' ORDER BY created_at DESC';
     const [clients] = await db.query(clientQuery, clientParams);
+    
+    console.log('[DEBUG] User role:', userRole, 'User ID:', userId);
+    console.log('[DEBUG] Client query:', clientQuery);
+    console.log('[DEBUG] Number of clients returned:', clients.length);
 
     // 4. Activity Logs (Filtered by statsDate if provided)
     let logQuery = 'SELECT * FROM activity_logs WHERE user_id = ?';
