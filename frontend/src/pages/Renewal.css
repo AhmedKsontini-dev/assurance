@@ -1,0 +1,240 @@
+/* Renewal Specific Styles */
+.expiration-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.expire-badge {
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.expire-badge.expired {
+  background-color: #fee2e2;
+  color: #ef4444;
+}
+
+.expire-badge.critical {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fee2e2;
+}
+
+.expire-badge.warning {
+  background-color: #fffbeb;
+  color: #d97706;
+}
+
+.dropdown-item.renew {
+  color: #0891b2 !important;
+  font-weight: 600 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.dropdown-item.renew:hover {
+  background-color: #ecfeff !important;
+  color: #0e7490 !important;
+  padding-left: 20px !important;
+}
+
+/* Premium Renew Button for Cards */
+.renew-btn-small {
+  background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 15px;
+  width: 100%;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(8, 145, 178, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.renew-btn-small::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: 0.5s;
+}
+
+.renew-btn-small:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(8, 145, 178, 0.3);
+  background: linear-gradient(135deg, #0e7490 0%, #155e75 100%);
+}
+
+.renew-btn-small:hover::after {
+  left: 100%;
+}
+
+.renew-btn-small:active {
+  transform: translateY(0);
+}
+
+.renew-btn-small svg {
+  transition: transform 0.5s ease;
+}
+
+.renew-btn-small:hover svg {
+  transform: rotate(180deg);
+}
+
+.renewal-modal-overlay {
+  z-index: 2000;
+}
+
+/* Payment Status Styles */
+.payment-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.payment-toggle-btn.paid {
+  color: #059669;
+  border-color: #059669;
+  background: #ecfdf5;
+}
+
+.payment-toggle-btn.unpaid {
+  color: #dc2626;
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+
+.payment-toggle-btn.partial {
+  color: #ea580c;
+  border-color: #ea580c;
+  background: #fff7ed;
+}
+
+.payment-toggle-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.stats-mini-pills {
+  display: flex;
+  gap: 8px;
+  margin-left: 15px;
+}
+
+.pill {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.pill.paid {
+  background: #059669;
+  color: white;
+}
+
+.pill.unpaid {
+  background: #dc2626;
+  color: white;
+}
+
+.pill.partial {
+  background: #ea580c;
+  color: white;
+}
+
+/* Category Styles */
+.category-input-container {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.category-input-container select {
+  flex: 1;
+}
+
+.add-category-btn {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-category-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+  transform: scale(1.05);
+}
+
+.category-badge {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  margin: 15px 0;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.modal-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.save-btn-small {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}

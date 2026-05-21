@@ -1,0 +1,338 @@
+/* Modern Reminder Banners - App Theme Colors */
+.modern-reminder-banner {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 25px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Reminder Header */
+.reminder-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.reminder-icon-wrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.expense-icon {
+  background: var(--accent-color);
+}
+
+.planning-icon {
+  background: var(--primary-color);
+}
+
+.reminder-title h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.reminder-title p {
+  margin: 3px 0 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+/* Reminder Grid */
+.reminder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+/* Expense Cards */
+.expense-card {
+  background: #f8fafc;
+  border-radius: 6px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.expense-card:hover {
+  background: white;
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 12px rgba(68, 114, 179, 0.15);
+}
+
+.expense-card.urgency-urgent {
+  background: #fff1f2;
+  border-color: var(--danger-color);
+}
+
+.expense-card.urgency-soon {
+  background: #fff7ed;
+  border-color: var(--accent-color);
+}
+
+.expense-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.expense-category {
+  display: inline-block;
+  background: white;
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.expense-badge {
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.expense-badge.badge-urgent {
+  background: var(--danger-color);
+  color: white;
+}
+
+.expense-badge.badge-soon {
+  background: var(--accent-color);
+  color: white;
+}
+
+.expense-badge.badge-normal {
+  background: var(--primary-color);
+  color: white;
+}
+
+.expense-description {
+  margin: 0;
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.expense-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.expense-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.expense-amount {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.expense-amount.amount-urgent {
+  color: var(--danger-color);
+}
+
+.expense-amount.amount-soon {
+  color: var(--accent-color);
+}
+
+/* Event Cards */
+.event-card {
+  background: #f8fafc;
+  border-radius: 6px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.event-card:hover {
+  background: white;
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 12px rgba(68, 114, 179, 0.15);
+}
+
+.event-card.event-today {
+  background: #fff1f2;
+  border-color: var(--danger-color);
+}
+
+.event-card-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.event-color-bar {
+  width: 4px;
+  height: 36px;
+  border-radius: 2px;
+}
+
+.event-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.event-title {
+  margin: 0;
+  font-weight: 600;
+  color: #334155;
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+
+.event-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.event-date-badge {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  background: white;
+  color: #64748b;
+}
+
+.event-date-badge.badge-today {
+  background: var(--danger-color);
+  color: white;
+}
+
+.event-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+.event-chevron {
+  color: #cbd5e1;
+  transition: color 0.2s ease;
+}
+
+.event-card:hover .event-chevron {
+  color: var(--primary-color);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .modern-reminder-banner {
+    padding: 16px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+  }
+
+  .reminder-header {
+    gap: 10px;
+  }
+
+  .reminder-icon-wrapper {
+    width: 40px;
+    height: 40px;
+  }
+
+  .reminder-icon-wrapper svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .reminder-title h2 {
+    font-size: 1rem;
+  }
+
+  .reminder-title p {
+    font-size: 0.8rem;
+  }
+
+  .reminder-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .expense-card {
+    padding: 12px;
+  }
+
+  .event-card {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .modern-reminder-banner {
+    padding: 14px;
+  }
+
+  .reminder-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .reminder-icon-wrapper {
+    width: 36px;
+    height: 36px;
+  }
+
+  .expense-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .expense-badge {
+    align-self: flex-start;
+  }
+
+  .event-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .event-card-left {
+    width: 100%;
+  }
+
+  .event-chevron {
+    align-self: flex-end;
+  }
+}

@@ -1,0 +1,33 @@
+============================================ 
+Assurance App Launcher - Startup Log 
+Started: 21/05/2026 21:09:17,36 
+============================================ 
+ 
+[21:09:17,37] Starting WAMP Server... 
+[21:09:17,38] Found WAMP at: D:\WAMP\wampmanager.exe 
+[21:09:17,57] WAMP launched successfully 
+[21:09:17,58] Waiting for WAMP to initialize... 
+[21:09:32,22] Verifying WAMP services... 
+[21:09:37,16] WAMP initialization complete 
+ 
+[21:09:37,18] Starting Backend Server... 
+[21:09:37,19] Backend server started in minimized window 
+[21:09:37,20] Waiting for backend to initialize... 
+[21:09:42,19] Backend initialization complete 
+ 
+[21:09:42,20] Starting Frontend... 
+[21:09:42,21] Frontend started in minimized window 
+[21:09:42,21] Waiting for frontend to initialize... 
+[21:09:47,15] Frontend initialization complete 
+ 
+[21:09:47,19] All services started successfully 
+ 
+[21:09:47,19] Services running: 
+  - WAMP Server (Apache + MySQL) 
+  - Backend Server (Node.js) 
+  - Frontend (React/Vite) 
+ 
+[21:09:47,22] Access URLs: 
+  - Frontend: http://localhost:5173 
+  - Backend: http://localhost:3000 (check backend for actual port) 
+============================================ 
