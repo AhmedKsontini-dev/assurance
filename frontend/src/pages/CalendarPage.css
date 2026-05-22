@@ -282,3 +282,17 @@
     display: none;
   }
 }
+
+.event-info-banner {
+  background-color: #eff6ff;
+  border-left: 4px solid #3b82f6;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  color: #1e40af;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+

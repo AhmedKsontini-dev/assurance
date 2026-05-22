@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Plus, X, Calendar as CalendarIcon, Clock, AlignLeft, Trash2, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, Calendar as CalendarIcon, Clock, AlignLeft, Trash2, CheckCircle2, Bell } from 'lucide-react';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import './CalendarPage.css';
 
 const CalendarPage = () => {
+  const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,8 +17,12 @@ const CalendarPage = () => {
     event_date: '',
     start_time: '',
     end_time: '',
-    color: '#3b82f6'
+    color: '#3b82f6',
+    event_partage: false
   });
+
+  const isOwner = !editingEvent || editingEvent.user_id === user?.id;
+  const creatorName = editingEvent?.creator_name || 'un autre utilisateur';
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -61,7 +67,8 @@ const CalendarPage = () => {
       event_date: date,
       start_time: '09:00',
       end_time: '10:00',
-      color: '#3b82f6'
+      color: '#3b82f6',
+      event_partage: false
     });
     setShowModal(true);
   };
@@ -75,13 +82,18 @@ const CalendarPage = () => {
       event_date: new Date(event.event_date).toLocaleDateString('en-CA'),
       start_time: event.start_time?.substring(0, 5) || '',
       end_time: event.end_time?.substring(0, 5) || '',
-      color: event.color || '#3b82f6'
+      color: event.color || '#3b82f6',
+      event_partage: event.event_partage || false
     });
     setShowModal(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isOwner) {
+      alert('Vous n\'êtes pas autorisé à modifier cet événement.');
+      return;
+    }
     try {
       if (editingEvent) {
         await api.put(`/events/${editingEvent.id}`, formData);
@@ -187,15 +199,21 @@ const CalendarPage = () => {
         {renderCells()}
       </div>
 
-      {/* Event Modal */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-content calendar-modal animate-pop">
             <div className="modal-header">
-              <h2>{editingEvent ? 'Modifier l\'événement' : 'Planifier un événement'}</h2>
+              <h2>{editingEvent ? (isOwner ? "Modifier l'événement" : "Détails de l'événement") : 'Planifier un événement'}</h2>
               <button className="close-modal" onClick={() => setShowModal(false)}><X size={20} /></button>
             </div>
             <form onSubmit={handleSubmit} className="event-form">
+              {!isOwner && (
+                <div className="event-info-banner animate-fade-in">
+                  <Bell size={18} />
+                  <span>Cet événement a été partagé par <strong>{creatorName}</strong>. Vous pouvez uniquement le consulter.</span>
+                </div>
+              )}
+
               <div className="form-group">
                 <label><CalendarIcon size={16} /> Titre</label>
                 <input 
@@ -204,6 +222,7 @@ const CalendarPage = () => {
                   onChange={e => setFormData({...formData, title: e.target.value})} 
                   placeholder="Ex: Réunion client, Rappel dossier..." 
                   required 
+                  disabled={!isOwner}
                 />
               </div>
               
@@ -215,6 +234,7 @@ const CalendarPage = () => {
                     value={formData.event_date} 
                     onChange={e => setFormData({...formData, event_date: e.target.value})} 
                     required 
+                    disabled={!isOwner}
                   />
                 </div>
                 <div className="form-group">
@@ -223,6 +243,7 @@ const CalendarPage = () => {
                     type="time" 
                     value={formData.start_time} 
                     onChange={e => setFormData({...formData, start_time: e.target.value})} 
+                    disabled={!isOwner}
                   />
                 </div>
               </div>
@@ -234,7 +255,21 @@ const CalendarPage = () => {
                   onChange={e => setFormData({...formData, description: e.target.value})} 
                   placeholder="Détails supplémentaires..."
                   rows="3"
+                  disabled={!isOwner}
                 ></textarea>
+              </div>
+
+              <div className="form-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isOwner ? 'pointer' : 'default' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={formData.event_partage} 
+                    onChange={e => setFormData({...formData, event_partage: e.target.checked})}
+                    style={{ width: '18px', height: '18px', cursor: isOwner ? 'pointer' : 'default' }}
+                    disabled={!isOwner}
+                  />
+                  <span>Partager cet événement avec tous les utilisateurs</span>
+                </label>
               </div>
 
               <div className="form-group">
@@ -244,8 +279,8 @@ const CalendarPage = () => {
                     <div 
                       key={c} 
                       className={`color-option ${formData.color === c ? 'selected' : ''}`} 
-                      style={{ backgroundColor: c }}
-                      onClick={() => setFormData({...formData, color: c})}
+                      style={{ backgroundColor: c, cursor: isOwner ? 'pointer' : 'default' }}
+                      onClick={() => isOwner && setFormData({...formData, color: c})}
                     >
                       {formData.color === c && <CheckCircle2 size={14} color="#fff" />}
                     </div>
@@ -254,14 +289,20 @@ const CalendarPage = () => {
               </div>
 
               <div className="modal-actions">
-                {editingEvent && (
+                {editingEvent && isOwner && (
                   <button type="button" className="delete-btn" onClick={handleDelete}>
                     <Trash2 size={18} /> Supprimer
                   </button>
                 )}
-                <button type="submit" className="save-btn">
-                  {editingEvent ? 'Mettre à jour' : 'Enregistrer'}
-                </button>
+                {isOwner ? (
+                  <button type="submit" className="save-btn">
+                    {editingEvent ? 'Mettre à jour' : 'Enregistrer'}
+                  </button>
+                ) : (
+                  <button type="button" className="save-btn" onClick={() => setShowModal(false)}>
+                    Fermer
+                  </button>
+                )}
               </div>
             </form>
           </div>

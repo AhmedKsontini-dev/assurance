@@ -114,6 +114,26 @@ const initDB = async () => {
     await connection.query(createExpensesTable);
     console.log('✅ Table "expenses" ensured');
 
+    // Create events table
+    const createEventsTable = `
+    CREATE TABLE IF NOT EXISTS events (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      event_date DATE NOT NULL,
+      start_time TIME,
+      end_time TIME,
+      color VARCHAR(7) DEFAULT '#3b82f6',
+      amount DECIMAL(10, 2) DEFAULT 0.00,
+      event_partage BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    `;
+    await connection.query(createEventsTable);
+    console.log('✅ Table "events" ensured');
+
     // Create default admin if not exists
     const [adminExists] = await connection.query('SELECT * FROM users WHERE role = "ADMIN"');
     if (adminExists.length === 0) {
