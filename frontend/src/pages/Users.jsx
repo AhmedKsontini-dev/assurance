@@ -69,8 +69,8 @@ const Users = () => {
         ...user,
         [permissionType]: updatedValue
       });
-      
-      setUsers(users.map(u => 
+
+      setUsers(users.map(u =>
         u.id === user.id ? { ...u, [permissionType]: updatedValue } : u
       ));
     } catch (err) {
@@ -117,13 +117,13 @@ const Users = () => {
   return (
     <div className="page-content">
       <div className="page-header">
-        <h1>User Management</h1>
+        <h1>Gestion des utilisateurs</h1>
       </div>
 
       <div className="action-bar">
         <div></div> {/* Left spacer */}
         <button className="add-btn" onClick={() => setShowForm(true)}>
-          + Add New User
+          + Ajouter un utilisateur
         </button>
       </div>
 
@@ -131,7 +131,7 @@ const Users = () => {
         <div className="modal-overlay">
           <div className="modal-content form-modal animate-pop">
             <div className="modal-header">
-              <h2>{editingId ? 'Edit User' : 'New User Account'}</h2>
+              <h2>{editingId ? 'Modifier un utilisateur' : 'Nouveau compte utilisateur'}</h2>
               <button className="close-modal" onClick={() => {
                 setShowForm(false);
                 setEditingId(null);
@@ -142,36 +142,36 @@ const Users = () => {
               <form className="add-form-expanded" onSubmit={handleSubmit}>
                 <div className="form-grid">
                   <div className="form-group">
-                    <label>Full Name</label>
-                    <input 
-                      value={formData.name} 
-                      onChange={e => setFormData({...formData, name: e.target.value})} 
-                      required 
+                    <label>Nom complet</label>
+                    <input
+                      value={formData.name}
+                      onChange={e => setFormData({ ...formData, name: e.target.value })}
+                      required
                     />
                   </div>
                   <div className="form-group">
-                    <label>Email Address</label>
-                    <input 
+                    <label>Adresse e-mail</label>
+                    <input
                       type="email"
-                      value={formData.email} 
-                      onChange={e => setFormData({...formData, email: e.target.value})} 
-                      required 
+                      value={formData.email}
+                      onChange={e => setFormData({ ...formData, email: e.target.value })}
+                      required
                     />
                   </div>
                   <div className="form-group">
-                    <label>{editingId ? 'New Password (optional)' : 'Password'}</label>
-                    <input 
+                    <label>{editingId ? 'Nouveau mot de passe (optionnel)' : 'Mot de passe'}</label>
+                    <input
                       type="password"
-                      value={formData.password} 
-                      onChange={e => setFormData({...formData, password: e.target.value})} 
+                      value={formData.password}
+                      onChange={e => setFormData({ ...formData, password: e.target.value })}
                       required={!editingId}
                     />
                   </div>
                   <div className="form-group">
                     <label>Role</label>
-                    <select 
-                      value={formData.role} 
-                      onChange={e => setFormData({...formData, role: e.target.value})}
+                    <select
+                      value={formData.role}
+                      onChange={e => setFormData({ ...formData, role: e.target.value })}
                     >
                       <option value="EMPLOYEE">Employee</option>
                       <option value="ADMIN">Administrator</option>
@@ -181,26 +181,26 @@ const Users = () => {
                     <label>Permissions par défaut</label>
                     <div className="permissions-group" style={{ marginTop: '10px' }}>
                       <label className="permission-checkbox">
-                        <input 
-                          type="checkbox" 
-                          checked={formData.can_add} 
-                          onChange={e => setFormData({...formData, can_add: e.target.checked})}
+                        <input
+                          type="checkbox"
+                          checked={formData.can_add}
+                          onChange={e => setFormData({ ...formData, can_add: e.target.checked })}
                         />
                         <span>Autoriser Ajout</span>
                       </label>
                       <label className="permission-checkbox">
-                        <input 
-                          type="checkbox" 
-                          checked={formData.can_edit} 
-                          onChange={e => setFormData({...formData, can_edit: e.target.checked})}
+                        <input
+                          type="checkbox"
+                          checked={formData.can_edit}
+                          onChange={e => setFormData({ ...formData, can_edit: e.target.checked })}
                         />
                         <span>Autoriser Modification</span>
                       </label>
                       <label className="permission-checkbox">
-                        <input 
-                          type="checkbox" 
-                          checked={formData.can_delete} 
-                          onChange={e => setFormData({...formData, can_delete: e.target.checked})}
+                        <input
+                          type="checkbox"
+                          checked={formData.can_delete}
+                          onChange={e => setFormData({ ...formData, can_delete: e.target.checked })}
                         />
                         <span>Autoriser Suppression</span>
                       </label>
@@ -208,7 +208,7 @@ const Users = () => {
                   </div>
                 </div>
                 <button type="submit" className="save-btn">
-                  {editingId ? 'Update User' : 'Create User'}
+                  {editingId ? 'Mettre à jour l\'utilisateur' : 'Créer un utilisateur'}
                 </button>
               </form>
             </div>
@@ -227,8 +227,8 @@ const Users = () => {
               <th>Name</th>
               <th>Email</th>
               <th>Role</th>
-              <th>Access (Add | Edit | Delete)</th>
-              <th>Joined Date</th>
+              <th>Access (Ajouter | Modifier | Supprimer)</th>
+              <th>Date d'ajout</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -244,73 +244,73 @@ const Users = () => {
                     </div>
                   </td>
                   <td>{user.id}</td>
-                <td><strong>{user.name}</strong></td>
-                <td>{user.email}</td>
-                <td>
-                  <span className={`role-badge ${user.role.toLowerCase()}`}>
-                    {user.role}
-                  </span>
-                </td>
-                <td>
-                  {user.role === 'ADMIN' ? (
-                    <span className="full-access-badge">✨ Full Access</span>
-                  ) : (
-                    <div className="permissions-group">
-                      <label className="permission-checkbox">
-                        <input 
-                          type="checkbox" 
-                          checked={user.can_add} 
-                          onChange={() => togglePermission(user, 'can_add')}
-                        />
-                        <span>Add</span>
-                      </label>
-                      <label className="permission-checkbox">
-                        <input 
-                          type="checkbox" 
-                          checked={user.can_edit} 
-                          onChange={() => togglePermission(user, 'can_edit')}
-                        />
-                        <span>Edit</span>
-                      </label>
-                      <label className="permission-checkbox">
-                        <input 
-                          type="checkbox" 
-                          checked={user.can_delete} 
-                          onChange={() => togglePermission(user, 'can_delete')}
-                        />
-                        <span>Delete</span>
-                      </label>
-                    </div>
-                  )}
-                </td>
-                <td>{new Date(user.created_at).toLocaleDateString()}</td>
-                <td className="actions-cell">
-                  <div className="dropdown">
-                    <button 
-                      className="dropdown-toggle" 
-                      onClick={() => setOpenDropdownId(openDropdownId === user.id ? null : user.id)}
-                    >
-                      Actions ▾
-                    </button>
-                    {openDropdownId === user.id && (
-                      <div className="dropdown-menu">
-                        <button onClick={() => handleEdit(user)} className="dropdown-item edit">
-                          <Edit size={16} style={{marginRight: '8px'}} /> Modifier
-                        </button>
-                        <button onClick={() => {
-                          setDeleteConfirmId(user.id);
-                          setOpenDropdownId(null);
-                        }} className="dropdown-item delete">
-                          <Trash2 size={16} style={{marginRight: '8px'}} /> Supprimer
-                        </button>
+                  <td><strong>{user.name}</strong></td>
+                  <td>{user.email}</td>
+                  <td>
+                    <span className={`role-badge ${user.role.toLowerCase()}`}>
+                      {user.role}
+                    </span>
+                  </td>
+                  <td>
+                    {user.role === 'ADMIN' ? (
+                      <span className="full-access-badge">✨ Accès complet</span>
+                    ) : (
+                      <div className="permissions-group">
+                        <label className="permission-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={user.can_add}
+                            onChange={() => togglePermission(user, 'can_add')}
+                          />
+                          <span>Ajouter</span>
+                        </label>
+                        <label className="permission-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={user.can_edit}
+                            onChange={() => togglePermission(user, 'can_edit')}
+                          />
+                          <span>Modifier</span>
+                        </label>
+                        <label className="permission-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={user.can_delete}
+                            onChange={() => togglePermission(user, 'can_delete')}
+                          />
+                          <span>Supprimer</span>
+                        </label>
                       </div>
                     )}
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
+                  </td>
+                  <td>{new Date(user.created_at).toLocaleDateString()}</td>
+                  <td className="actions-cell">
+                    <div className="dropdown">
+                      <button
+                        className="dropdown-toggle"
+                        onClick={() => setOpenDropdownId(openDropdownId === user.id ? null : user.id)}
+                      >
+                        Actions ▾
+                      </button>
+                      {openDropdownId === user.id && (
+                        <div className="dropdown-menu">
+                          <button onClick={() => handleEdit(user)} className="dropdown-item edit">
+                            <Edit size={16} style={{ marginRight: '8px' }} /> Modifier
+                          </button>
+                          <button onClick={() => {
+                            setDeleteConfirmId(user.id);
+                            setOpenDropdownId(null);
+                          }} className="dropdown-item delete">
+                            <Trash2 size={16} style={{ marginRight: '8px' }} /> Supprimer
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
         </table>
       </div>
 

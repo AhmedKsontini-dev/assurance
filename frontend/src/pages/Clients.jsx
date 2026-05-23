@@ -643,28 +643,30 @@ const Clients = () => {
       </div>
 
       <div className="action-bar">
-        {isAdmin && (
-          <div className="total-display-container">
-            <button className="total-btn" onClick={calculateGrandTotal}>
-              📊 Calcule Total
-            </button>
-            {grandTotal !== null && (
-              <div className="total-badge animate-pop">
-                <span className="label">Grand Total:</span>
-                <span className="value">{grandTotal} <small>DT</small></span>
-              </div>
-            )}
-            <div className="stats-mini-pills">
-              
-              <span className="pill unpaid">
-                {filteredClients.filter(c => c.payment_status === 'Unpaid' || !c.payment_status).length} Impayé
-              </span>
-              <span className="pill partial">
-                {filteredClients.filter(c => c.payment_status === 'Partial').length} Partiellement payé
-              </span>
-            </div>
+        <div className="total-display-container">
+          {isAdmin && (
+            <>
+              <button className="total-btn" onClick={calculateGrandTotal}>
+                📊 Calcule Total
+              </button>
+              {grandTotal !== null && (
+                <div className="total-badge animate-pop">
+                  <span className="label">Grand Total:</span>
+                  <span className="value">{grandTotal} <small>DT</small></span>
+                </div>
+              )}
+            </>
+          )}
+          <div className="stats-mini-pills">
+            
+            <span className="pill unpaid">
+              {filteredClients.filter(c => c.payment_status === 'Unpaid' || !c.payment_status).length} Impayé
+            </span>
+            <span className="pill partial">
+              {filteredClients.filter(c => c.payment_status === 'Partial').length} Partiellement payé
+            </span>
           </div>
-        )}
+        </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button className="total-btn" onClick={() => setShowPrintModal(true)} style={{ borderColor: '#4caf50', color: '#4caf50' }}>
             <Printer size={18} style={{ marginRight: '5px' }} /> Imprimer

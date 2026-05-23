@@ -14,7 +14,7 @@ exports.getEmployeeReports = async (req, res, next) => {
       GROUP BY u.id, u.name, u.email
     `;
     const [rows] = await db.query(query);
-    
+
     res.status(200).json({
       status: 'success',
       data: rows
@@ -27,13 +27,13 @@ exports.getEmployeeReports = async (req, res, next) => {
 exports.getEmployeeDetails = async (req, res, next) => {
   try {
     const userId = req.params.id;
-    
+
     // Get employee info
     const [userRows] = await db.query(
-      'SELECT id, name, email, role FROM users WHERE id = ?', 
+      'SELECT id, name, email, role FROM users WHERE id = ?',
       [userId]
     );
-    
+
     if (userRows.length === 0) {
       return res.status(404).json({
         status: 'fail',
@@ -69,11 +69,11 @@ exports.getEmployeeDetails = async (req, res, next) => {
 exports.getEmployeeAnalytics = async (req, res, next) => {
   try {
     const userId = req.params.id;
-    const { statsDate } = req.query; 
+    const { statsDate } = req.query;
 
     // 1. Employee Info
     const [userRows] = await db.query(
-      'SELECT id, name, email, role, created_at FROM users WHERE id = ?', 
+      'SELECT id, name, email, role, created_at FROM users WHERE id = ?',
       [userId]
     );
     if (userRows.length === 0) return res.status(404).json({ status: 'fail', message: 'Employee not found' });
@@ -112,7 +112,7 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
       [userId]
     );
     const todayCaisseNet = await getTodayCaisseNet();
-    
+
     // Week: client contracts only — NOT affected by caisse
     const [weekClientStats] = await db.query(
       'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as amount FROM clients WHERE created_by = ? AND YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)',
@@ -139,7 +139,7 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
         [userId, statsDate]
       );
       const customCaisseNet = await getCustomDayCaisseNet(statsDate);
-      
+
       customDateStats = {
         count: customRows[0].count,
         amount: parseFloat(customRows[0].amount) + customCaisseNet
@@ -147,30 +147,18 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
     }
 
     // 3. Clients List (Filtered by statsDate if provided)
-    // For ADMIN and EMPLOYEE roles, show ALL clients, not just those created by the user
+    // Show only own clients for all roles (including ADMIN)
     const userRole = userRows[0].role;
-    let clientQuery, clientParams;
+    let clientQuery = 'SELECT * FROM clients WHERE created_by = ?';
+    let clientParams = [userId];
     
-    if (userRole === 'ADMIN' || userRole === 'EMPLOYEE') {
-      // Show all clients for admin and employee
-      clientQuery = 'SELECT * FROM clients';
-      clientParams = [];
-      if (statsDate) {
-        clientQuery += ' WHERE DATE(created_at) = ?';
-        clientParams.push(statsDate);
-      }
-    } else {
-      // Show only own clients for other roles
-      clientQuery = 'SELECT * FROM clients WHERE created_by = ?';
-      clientParams = [userId];
-      if (statsDate) {
-        clientQuery += ' AND DATE(created_at) = ?';
-        clientParams.push(statsDate);
-      }
+    if (statsDate) {
+      clientQuery += ' AND DATE(created_at) = ?';
+      clientParams.push(statsDate);
     }
     clientQuery += ' ORDER BY created_at DESC';
     const [clients] = await db.query(clientQuery, clientParams);
-    
+
     console.log('[DEBUG] User role:', userRole, 'User ID:', userId);
     console.log('[DEBUG] Client query:', clientQuery);
     console.log('[DEBUG] Number of clients returned:', clients.length);

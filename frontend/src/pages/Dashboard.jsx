@@ -452,7 +452,12 @@ const Dashboard = () => {
               </thead>
               <tbody>
                 {currentClients.map(client => (
-                  <tr key={client.id}>
+                  <tr 
+                    key={client.id}
+                    onClick={() => handleViewClient(client)}
+                    style={{ cursor: 'pointer' }}
+                    title="Cliquer pour voir les détails"
+                  >
                     <td>{client.police}</td>
                     <td>{client.societaire}</td>
                     <td>{new Date(client.date_effet).toLocaleDateString()}</td>

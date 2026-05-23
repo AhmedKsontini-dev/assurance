@@ -10,7 +10,20 @@ const EmployeeDetails = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statsDate, setStatsDate] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [viewingClient, setViewingClient] = useState(null);
+  const [viewingClientVersements, setViewingClientVersements] = useState([]);
   const clientsPerPage = 10;
+
+  const handleViewClient = async (client) => {
+    setViewingClient(client);
+    setViewingClientVersements([]);
+    try {
+      const res = await api.get(`/clients/${client.id}/versements`);
+      setViewingClientVersements(res.data.data);
+    } catch (err) {
+      console.error('Failed to fetch client payments:', err);
+    }
+  };
 
   useEffect(() => {
     fetchAnalytics();
@@ -127,7 +140,12 @@ const EmployeeDetails = () => {
               </thead>
               <tbody>
                 {currentClients.map(client => (
-                  <tr key={client.id}>
+                  <tr 
+                    key={client.id}
+                    onClick={() => handleViewClient(client)}
+                    style={{ cursor: 'pointer' }}
+                    title="Cliquer pour voir les détails"
+                  >
                     <td>{client.police}</td>
                     <td>{client.societaire}</td>
                     <td>{new Date(client.date_effet).toLocaleDateString()}</td>
@@ -172,6 +190,183 @@ const EmployeeDetails = () => {
           </section>
         </div>
       </div>
+
+      {/* View Modal */}
+      {viewingClient && (
+        <div className="modal-overlay">
+          <div className="modal-content view-modal-content animate-pop">
+            <div className="modal-header">
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.5rem', color: 'var(--primary-color)' }}>Détails du Client</h2>
+                <p style={{ margin: '5px 0 0', color: '#64748b', fontSize: '0.9rem' }}>
+                  {viewingClient.societaire} (ID: {viewingClient.id})
+                </p>
+              </div>
+              <button className="close-modal" onClick={() => setViewingClient(null)}>&times;</button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              
+              {/* Section 1: Informations Personnelles & Contrat */}
+              <div className="detail-section">
+                <div className="detail-section-title">
+                  👤 Informations Personnelles & Contrat
+                </div>
+                <div className="detail-grid">
+                  <div className="detail-item">
+                    <span className="detail-label">Sociétaire / Nom</span>
+                    <span className="detail-value">{viewingClient.societaire || '-'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Téléphone</span>
+                    <span className="detail-value">{viewingClient.tel || '-'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Adresse</span>
+                    <span className="detail-value">{viewingClient.adresse || '-'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Catégorie</span>
+                    <span className="detail-value">{viewingClient.category || '-'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Numéro de Police</span>
+                    <span className="detail-value" style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{viewingClient.police || '-'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Date d'effet</span>
+                    <span className="detail-value">{viewingClient.date_effet ? new Date(viewingClient.date_effet).toLocaleDateString() : '-'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Date d'expiration</span>
+                    <span className="detail-value">{viewingClient.date_expiration ? new Date(viewingClient.date_expiration).toLocaleDateString() : '-'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Statut Renouvellement</span>
+                    <span className="detail-value">{viewingClient.renewal_status || 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Informations de Société & Véhicule */}
+              <div className="detail-section">
+                <div className="detail-section-title">
+                  🏢 Informations de Société & Véhicule
+                </div>
+                <div className="detail-grid">
+                  <div className="detail-item">
+                    <span className="detail-label">Registre de Commerce (RC)</span>
+                    <span className="detail-value">{viewingClient.rc || '-'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Papier / Attestation</span>
+                    <span className="detail-value">{viewingClient.papier || '-'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Immatriculation</span>
+                    <span className="detail-value" style={{ fontWeight: 'bold' }}>{viewingClient.immatriculation || '-'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Usage Véhicule</span>
+                    <span className="detail-value">{viewingClient.usage_vehicle || '-'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Informations de Paiement */}
+              <div className="detail-section">
+                <div className="detail-section-title">
+                  💳 Informations de Paiement
+                </div>
+                <div className="detail-grid">
+                  <div className="detail-item">
+                    <span className="detail-label">Montant Hors Réduction</span>
+                    <span className="detail-value">{viewingClient.montant !== null && viewingClient.montant !== undefined ? `${viewingClient.montant} DT` : '-'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Réduction</span>
+                    <span className="detail-value" style={{ color: '#e74c3c' }}>{viewingClient.reduction !== null && viewingClient.reduction !== undefined ? `${viewingClient.reduction} DT` : '-'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Montant Total Net</span>
+                    <span className="detail-value" style={{ color: 'var(--primary-color)', fontSize: '1.1rem', fontWeight: '700' }}>
+                      {viewingClient.total !== null && viewingClient.total !== undefined ? `${parseFloat(viewingClient.total).toFixed(2)} DT` : '-'}
+                    </span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Montant Déjà Payé</span>
+                    <span className="detail-value" style={{ color: '#2ecc71', fontWeight: '700' }}>
+                      {viewingClient.montant_paye !== null && viewingClient.montant_paye !== undefined ? `${parseFloat(viewingClient.montant_paye).toFixed(2)} DT` : '0.00 DT'}
+                    </span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Reste à payer</span>
+                    <span className="detail-value" style={{ 
+                      color: ((parseFloat(viewingClient.total) || 0) - (parseFloat(viewingClient.montant_paye) || 0)) > 0 ? '#e74c3c' : '#2ecc71',
+                      fontWeight: '700'
+                    }}>
+                      {((parseFloat(viewingClient.total) || 0) - (parseFloat(viewingClient.montant_paye) || 0)).toFixed(2)} DT
+                    </span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Statut Paiement</span>
+                    <span className={`detail-badge ${
+                      viewingClient.payment_status === 'Paid' ? 'success' : viewingClient.payment_status === 'Partial' ? 'warning' : 'danger'
+                    }`}>
+                      {viewingClient.payment_status === 'Paid' ? 'Payé' : viewingClient.payment_status === 'Partial' ? 'Partiel' : 'Impayé'}
+                    </span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Mode de règlement</span>
+                    <span className="detail-value">{viewingClient.paiement || '-'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Prochain paiement prévu</span>
+                    <span className="detail-value" style={{ fontWeight: '700', color: '#e67e22' }}>
+                      {viewingClient.date_prochain_paiement ? new Date(viewingClient.date_prochain_paiement).toLocaleDateString() : '-'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 4: Historique des Versements */}
+              <div className="detail-section">
+                <div className="detail-section-title">
+                  📜 Historique des Versements
+                </div>
+                <div className="payments-table-container">
+                  {viewingClientVersements && viewingClientVersements.length > 0 ? (
+                    <table className="payments-table">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Montant</th>
+                          <th>Méthode</th>
+                          <th>Date d'enregistrement</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {viewingClientVersements.map(v => (
+                          <tr key={v.id}>
+                            <td>{v.date_versement ? new Date(v.date_versement).toLocaleDateString() : '-'}</td>
+                            <td style={{ fontWeight: 'bold', color: '#2ecc71' }}>{parseFloat(v.montant).toFixed(2)} DT</td>
+                            <td>{v.methode_paiement || 'Espèce'}</td>
+                            <td>{v.created_at ? new Date(v.created_at).toLocaleString() : '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="no-data-msg">
+                      Aucun versement enregistré pour ce client.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

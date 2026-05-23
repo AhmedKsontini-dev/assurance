@@ -9,7 +9,7 @@ router.use(authMiddleware.protect);
 router
   .route('/')
   .get(categoryController.getAllCategories)
-  .post(authMiddleware.checkPermission('admin'), categoryController.createCategory);
+  .post(categoryController.createCategory);
 
 router.delete('/:id', authMiddleware.checkPermission('admin'), categoryController.deleteCategory);
 

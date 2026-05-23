@@ -95,7 +95,7 @@ class Client {
     Object.keys(data).forEach(key => {
       if (data[key] !== undefined) {
         let val = data[key];
-        
+
         // Sanitize empty strings or nulls for specific types
         if (val === '') {
           if (numFields.includes(key)) {
