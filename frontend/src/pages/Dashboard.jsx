@@ -162,7 +162,8 @@ const Dashboard = () => {
         const todayDate = new Date();
         todayDate.setHours(0, 0, 0, 0);
 
-        const paymentAlerts = data && data.clients ? data.clients.filter(client => {
+        const clientsToCheck = data && data.all_clients ? data.all_clients : (data && data.clients ? data.clients : []);
+        const paymentAlerts = clientsToCheck.filter(client => {
           const total = parseFloat(client.total) || 0;
           const paid = parseFloat(client.montant_paye) || 0;
           const remaining = total - paid;
@@ -175,8 +176,8 @@ const Dashboard = () => {
           const diffTime = nextPaymentDate - todayDate;
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-          return diffDays <= 3;
-        }).sort((a, b) => new Date(a.date_prochain_paiement) - new Date(b.date_prochain_paiement)) : [];
+          return diffDays >= 0 && diffDays <= 10;
+        }).sort((a, b) => new Date(a.date_prochain_paiement) - new Date(b.date_prochain_paiement));
 
         if (paymentAlerts.length === 0) return null;
 

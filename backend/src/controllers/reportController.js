@@ -159,9 +159,12 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
     clientQuery += ' ORDER BY created_at DESC';
     const [clients] = await db.query(clientQuery, clientParams);
 
+    // Fetch all clients for global alerts (like payment reminders)
+    const [allClients] = await db.query('SELECT * FROM clients ORDER BY created_at DESC');
+
     console.log('[DEBUG] User role:', userRole, 'User ID:', userId);
     console.log('[DEBUG] Client query:', clientQuery);
-    console.log('[DEBUG] Number of clients returned:', clients.length);
+    console.log('[DEBUG] Number of own clients returned:', clients.length);
 
     // 4. Activity Logs (Filtered by statsDate if provided)
     let logQuery = 'SELECT * FROM activity_logs WHERE user_id = ?';
@@ -199,6 +202,7 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
           custom: customDateStats
         },
         clients,
+        all_clients: allClients,
         logs
       }
     });
