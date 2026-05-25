@@ -122,7 +122,8 @@ const Clients = () => {
     payment_date: '',
     payment_method: '',
     date_prochain_paiement: '',
-    category: ''
+    category: '',
+    created_at: ''
   };
   const [formData, setFormData] = useState(initialFormState);
 
@@ -302,7 +303,8 @@ const Clients = () => {
       payment_method: client.payment_method || '',
       date_prochain_paiement: client.date_prochain_paiement ? new Date(client.date_prochain_paiement).toLocaleDateString('en-CA') : '',
       montant_paye: client.montant_paye || '',
-      category: client.category || ''
+      category: client.category || '',
+      created_at: client.created_at ? new Date(client.created_at).toLocaleDateString('en-CA') : ''
     });
     setShowForm(true);
     setOpenDropdownId(null);
@@ -772,6 +774,14 @@ const Clients = () => {
                           <Plus size={18} />
                         </button>
                       </div>
+                    </div>
+                    <div className="form-group">
+                      <label>Date de création</label>
+                      <input
+                        type="date"
+                        value={formData.created_at || ''}
+                        onChange={e => setFormData({...formData, created_at: e.target.value})}
+                      />
                     </div>
                   </div>
                 </div>

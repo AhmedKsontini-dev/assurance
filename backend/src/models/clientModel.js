@@ -46,7 +46,7 @@ class Client {
       reduction, rc, papier, usage_vehicle, immatriculation,
       date_effet, date_expiration, total, created_by,
       payment_status, payment_date, payment_method, category,
-      montant_paye, date_prochain_paiement
+      montant_paye, date_prochain_paiement, created_at
     } = data;
 
     const [result] = await db.query(
@@ -55,8 +55,8 @@ class Client {
         reduction, rc, papier, usage_vehicle, immatriculation, 
         date_effet, date_expiration, total, created_by,
         payment_status, payment_date, payment_method, category,
-        montant_paye, date_prochain_paiement
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        montant_paye, date_prochain_paiement, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`,
       [
         police || null,
         societaire || null,
@@ -78,7 +78,8 @@ class Client {
         payment_method || null,
         category || null,
         toNum(montant_paye) || 0.00,
-        toDate(date_prochain_paiement)
+        toDate(date_prochain_paiement),
+        toDate(created_at)
       ]
     );
 
@@ -90,7 +91,7 @@ class Client {
     const values = [];
 
     const numFields = ['montant', 'reduction', 'total', 'montant_paye'];
-    const dateFields = ['date_effet', 'date_expiration', 'payment_date', 'date_prochain_paiement'];
+    const dateFields = ['date_effet', 'date_expiration', 'payment_date', 'date_prochain_paiement', 'created_at'];
 
     Object.keys(data).forEach(key => {
       if (data[key] !== undefined) {
