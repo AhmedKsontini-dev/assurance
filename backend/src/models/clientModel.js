@@ -17,7 +17,7 @@ class Client {
       params.push(filters.month);
     }
 
-    query += ` ORDER BY clients.created_at DESC`;
+    query += ` ORDER BY clients.created_at DESC, clients.id DESC`;
 
     const [rows] = await db.query(query, params);
     return rows;

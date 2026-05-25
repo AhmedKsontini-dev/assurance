@@ -494,6 +494,9 @@ const Clients = () => {
     );
   });
 
+  // Tri strict par ID décroissant pour garantir que l'ordre ne change jamais après une modification
+  filteredClients.sort((a, b) => b.id - a.id);
+
   // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -1201,6 +1204,7 @@ const Clients = () => {
               <th>Adresse</th>
               <th>Téléphone</th>
               <th>Immatriculation</th>
+              <th>Papier</th>
               <th>Date d'effet</th>
               <th>Date d'expiration</th>
               <th>Statut Paiement</th>
@@ -1234,6 +1238,15 @@ const Clients = () => {
                 <td>{client.tel || '-'}</td>
                
                 <td>{client.immatriculation || '-'}</td>
+                <td>
+                  {(!client.papier || client.papier.trim() === '') ? (
+                    <span className="missing-paper-badge" title="Le document papier n'est pas fourni">
+                      <span className="icon">⚠️</span> Papier manquant
+                    </span>
+                  ) : (
+                    client.papier
+                  )}
+                </td>
                 <td>{client.date_effet ? new Date(client.date_effet).toLocaleDateString() : '-'}</td>
                 <td className={(() => {
                   if (client.renewal_status === 'Refused') return 'expiration-expired';
