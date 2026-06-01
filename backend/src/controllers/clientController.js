@@ -37,6 +37,26 @@ exports.getClientById = async (req, res, next) => {
 exports.createClient = async (req, res, next) => {
   try {
     console.log('[DEBUG] Données reçues pour la création du client (req.body):', req.body);
+
+    const { police, immatriculation, tel } = req.body;
+    const existingClient = await Client.findBySimilarities(police, immatriculation, tel);
+    
+    if (existingClient) {
+      return res.status(409).json({
+        status: 'fail',
+        message: 'Un client similaire existe déjà.',
+        existingClient: {
+          id: existingClient.id,
+          societaire: existingClient.societaire,
+          tel: existingClient.tel,
+          created_at: existingClient.created_at,
+          creator_name: existingClient.creator_name,
+          police: existingClient.police,
+          immatriculation: existingClient.immatriculation
+        }
+      });
+    }
+
     const clientId = await Client.create({
       ...req.body,
       created_by: req.user.id
@@ -369,3 +389,44 @@ async function recalculateNextPaymentDate(clientId) {
     return null;
   }
 }
+
+exports.checkDuplicate = async (req, res, next) => {
+  try {
+    const { police, immatriculation, tel } = req.query;
+    const existingClient = await Client.findBySimilarities(police, immatriculation, tel);
+    if (existingClient) {
+      return res.status(200).json({
+        status: 'success',
+        isDuplicate: true,
+        existingClient: {
+          id: existingClient.id,
+          societaire: existingClient.societaire,
+          tel: existingClient.tel,
+          created_at: existingClient.created_at,
+          creator_name: existingClient.creator_name,
+          police: existingClient.police,
+          immatriculation: existingClient.immatriculation
+        }
+      });
+    }
+    
+    res.status(200).json({
+      status: 'success',
+      isDuplicate: false
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getCreators = async (req, res, next) => {
+  try {
+    const creators = await Client.getCreators();
+    res.status(200).json({
+      status: 'success',
+      data: creators
+    });
+  } catch (err) {
+    next(err);
+  }
+};

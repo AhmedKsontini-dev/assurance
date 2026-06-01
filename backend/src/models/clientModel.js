@@ -11,10 +11,30 @@ class Client {
         ON users.id = clients.created_by
     `;
     const params = [];
+    const conditions = [];
 
     if (filters.month) {
-      query += ` WHERE DATE_FORMAT(clients.created_at, '%Y-%m') = ?`;
+      conditions.push(`DATE_FORMAT(clients.created_at, '%Y-%m') = ?`);
       params.push(filters.month);
+    }
+
+    if (filters.created_by) {
+      conditions.push(`clients.created_by = ?`);
+      params.push(filters.created_by);
+    }
+
+    if (filters.created_at_start) {
+      conditions.push(`DATE(clients.created_at) >= ?`);
+      params.push(filters.created_at_start);
+    }
+
+    if (filters.created_at_end) {
+      conditions.push(`DATE(clients.created_at) <= ?`);
+      params.push(filters.created_at_end);
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ` + conditions.join(' AND ');
     }
 
     query += ` ORDER BY clients.created_at DESC, clients.id DESC`;
@@ -161,6 +181,61 @@ class Client {
       [days]
     );
     return rows[0].count;
+  }
+
+  /**
+   * Get all registered users (Admins or Employees) to populate the creator filter
+   */
+  static async getCreators() {
+    const [rows] = await db.query(`
+      SELECT id, name 
+      FROM users 
+      ORDER BY name ASC
+    `);
+    return rows;
+  }
+
+  /**
+   * Find a client by exact matches on police or immatriculation
+   * We exclude empty strings and nulls from being matched.
+   */
+  static async findBySimilarities(police, immatriculation, tel) {
+    const conditions = [];
+    const params = [];
+
+    if (police && police.trim() !== '') {
+      conditions.push('clients.police = ?');
+      params.push(police.trim());
+    }
+
+    if (immatriculation && immatriculation.trim() !== '') {
+      conditions.push('clients.immatriculation = ?');
+      params.push(immatriculation.trim());
+    }
+    
+    // Commented out tel because it might yield too many false positives if multiple clients share the same phone
+    // However, as requested by the bonus task, we add it to the check.
+    if (tel && tel.trim() !== '') {
+      conditions.push('clients.tel = ?');
+      params.push(tel.trim());
+    }
+
+    if (conditions.length === 0) {
+      return null;
+    }
+
+    const query = `
+      SELECT 
+        clients.*,
+        users.name AS creator_name
+      FROM clients
+      LEFT JOIN users ON users.id = clients.created_by
+      WHERE ${conditions.join(' OR ')}
+      LIMIT 1
+    `;
+
+    const [rows] = await db.query(query, params);
+    return rows[0];
   }
 }
 

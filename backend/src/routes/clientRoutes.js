@@ -12,6 +12,9 @@ router
   .get(clientController.getAllClients)
   .post(authMiddleware.checkPermission('add'), clientController.createClient);
 
+router.get('/check-duplicate', authMiddleware.checkPermission('add'), clientController.checkDuplicate);
+router.get('/creators', clientController.getCreators);
+
 router
   .route('/:id')
   .get(clientController.getClientById)

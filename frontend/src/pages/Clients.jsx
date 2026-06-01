@@ -18,9 +18,12 @@ const Clients = () => {
   const [renewingClient, setRenewingClient] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [categories, setCategories] = useState([]);
+  const [creators, setCreators] = useState([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [categoryStats, setCategoryStats] = useState({ total: 0, stats: [] });
+  const [duplicateWarning, setDuplicateWarning] = useState(null);
+  const [duplicateError, setDuplicateError] = useState(null);
   
   // Print state
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -45,7 +48,10 @@ const Clients = () => {
     papier: '',
     status: '',
     payment_status: '',
-    category: ''
+    category: '',
+    created_by: '',
+    created_at_start: '',
+    created_at_end: ''
   });
   const [showFilters, setShowFilters] = useState(false);
   const [grandTotal, setGrandTotal] = useState(null);
@@ -155,9 +161,41 @@ const Clients = () => {
     }
   };
 
+  const fetchCreators = async () => {
+    try {
+      const res = await api.get('/clients/creators');
+      setCreators(res.data.data);
+    } catch (err) {
+      console.error('Failed to fetch creators');
+    }
+  };
+
+  const checkDuplicate = async (field, value) => {
+    if (!value || value.trim() === '') {
+      if (duplicateWarning?.field === field) setDuplicateWarning(null);
+      return;
+    }
+    try {
+      const res = await api.get(`/clients/check-duplicate?${field}=${encodeURIComponent(value)}`);
+      if (res.data.isDuplicate && (!editingId || res.data.existingClient.id !== editingId)) {
+        setDuplicateWarning({
+          field,
+          client: res.data.existingClient
+        });
+      } else {
+        if (duplicateWarning?.field === field) {
+          setDuplicateWarning(null);
+        }
+      }
+    } catch (err) {
+      console.error('Duplicate check error', err);
+    }
+  };
+
   useEffect(() => {
     fetchClients();
     fetchCategories();
+    fetchCreators();
     if (isAdmin) {
       fetchCategoryStats();
     }
@@ -196,13 +234,20 @@ const Clients = () => {
       setShowForm(false);
       setEditingId(null);
       setFormData(initialFormState);
+      setDuplicateError(null);
+      setDuplicateWarning(null);
       fetchClients();
       
       // Refresh global stats and notifications
       if (isAdmin) fetchCategoryStats();
       window.dispatchEvent(new Event('refresh-alerts'));
     } catch (err) {
-      alert(err.response?.data?.message || 'Operation failed');
+      if (err.response?.status === 409 && err.response?.data?.existingClient) {
+        setDuplicateError(err.response.data.existingClient);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        alert(err.response?.data?.message || 'Operation failed');
+      }
     }
   };
 
@@ -307,6 +352,8 @@ const Clients = () => {
       created_at: client.created_at ? new Date(client.created_at).toLocaleDateString('en-CA') : ''
     });
     setShowForm(true);
+    setDuplicateError(null);
+    setDuplicateWarning(null);
     setOpenDropdownId(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -466,6 +513,8 @@ const Clients = () => {
     const clientDateEffet = normalizeDate(client.date_effet);
     const clientDateExpiration = normalizeDate(client.date_expiration);
 
+      const clientCreatedAt = normalizeDate(client.created_at);
+
     return (
       (client.police || '').toLowerCase().includes(filters.police.toLowerCase()) &&
       (client.societaire || '').toLowerCase().includes(filters.societaire.toLowerCase()) &&
@@ -478,6 +527,9 @@ const Clients = () => {
       (filters.date_expiration === '' || clientDateExpiration === filters.date_expiration) &&
       (filters.payment_status === '' || client.payment_status === filters.payment_status) &&
       (filters.category === '' || client.category === filters.category) &&
+      (filters.created_by === '' || client.created_by?.toString() === filters.created_by) &&
+      (filters.created_at_start === '' || clientCreatedAt >= filters.created_at_start) &&
+      (filters.created_at_end === '' || clientCreatedAt <= filters.created_at_end) &&
       (filters.status === '' || (() => {
         if (!client.date_expiration) return false;
         const today = new Date();
@@ -628,6 +680,34 @@ const Clients = () => {
                   ))}
                 </select>
               </div>
+              <div className="filter-item">
+                <label>Créé par</label>
+                <select 
+                  value={filters.created_by}
+                  onChange={(e) => handleFilterChange('created_by', e.target.value)}
+                >
+                  <option value="">Tous les utilisateurs</option>
+                  {creators.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="filter-item">
+                <label>Créé entre le</label>
+                <input 
+                  type="date" 
+                  value={filters.created_at_start}
+                  onChange={(e) => handleFilterChange('created_at_start', e.target.value)}
+                />
+              </div>
+              <div className="filter-item">
+                <label>Et le</label>
+                <input 
+                  type="date" 
+                  value={filters.created_at_end}
+                  onChange={(e) => handleFilterChange('created_at_end', e.target.value)}
+                />
+              </div>
             </div>
             <button className="clear-filters" onClick={() => setFilters({
               date_effet: '', 
@@ -641,7 +721,10 @@ const Clients = () => {
               papier: '',
               status: '',
               payment_status: '',
-              category: ''
+              category: '',
+              created_by: '',
+              created_at_start: '',
+              created_at_end: ''
             })}>Effacer tous les filtres</button>
           </div>
         )}
@@ -710,9 +793,28 @@ const Clients = () => {
                 setShowForm(false);
                 setEditingId(null);
                 setFormData(initialFormState);
+                setDuplicateError(null);
+                setDuplicateWarning(null);
               }}>&times;</button>
             </div>
             <div className="modal-body">
+              {duplicateError && (
+                <div style={{ background: '#fef2f2', border: '1px solid #f87171', color: '#b91c1c', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
+                  <h4 style={{ margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>⚠️</span> Un client similaire existe déjà !
+                  </h4>
+                  <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.9rem' }}>
+                    <li><strong>Nom :</strong> {duplicateError.societaire}</li>
+                    <li><strong>Téléphone :</strong> {duplicateError.tel || '-'}</li>
+                    <li><strong>Police :</strong> {duplicateError.police || '-'}</li>
+                    <li><strong>Immatriculation :</strong> {duplicateError.immatriculation || '-'}</li>
+                    <li><strong>Créé le :</strong> {new Date(duplicateError.created_at).toLocaleDateString()} par {duplicateError.creator_name || 'Inconnu'}</li>
+                  </ul>
+                  <p style={{ margin: '10px 0 0 0', fontSize: '0.85rem' }}>
+                    Veuillez vérifier les informations saisies avant de continuer. L'enregistrement a été bloqué pour éviter un doublon.
+                  </p>
+                </div>
+              )}
               <form className="add-form-expanded" onSubmit={handleSubmit}>
 
                 {/* ── Section 1 : Informations Client ── */}
@@ -724,12 +826,20 @@ const Clients = () => {
                   <div className="cf-grid cf-grid-3">
                     <div className="form-group cf-required">
                       <label>Numéro de Police</label>
-                      <input
-                        value={formData.police}
-                        onChange={e => setFormData({...formData, police: e.target.value})}
-                        placeholder="Ex: POL-2024-001"
-                        required
-                      />
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          value={formData.police}
+                          onChange={e => setFormData({...formData, police: e.target.value})}
+                          onBlur={e => checkDuplicate('police', e.target.value)}
+                          placeholder="Ex: POL-2024-001"
+                          required
+                        />
+                        {duplicateWarning?.field === 'police' && (
+                          <span style={{ color: '#ef4444', fontSize: '0.75rem', position: 'absolute', bottom: '-18px', left: 0 }}>
+                            ⚠️ Police existante : {duplicateWarning.client.societaire}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="form-group cf-required cf-span2">
                       <label>Nom du Sociétaire</label>
@@ -742,11 +852,19 @@ const Clients = () => {
                     </div>
                     <div className="form-group">
                       <label>Téléphone</label>
-                      <input
-                        value={formData.tel}
-                        onChange={e => setFormData({...formData, tel: e.target.value})}
-                        placeholder="+216 XX XXX XXX"
-                      />
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          value={formData.tel}
+                          onChange={e => setFormData({...formData, tel: e.target.value})}
+                          onBlur={e => checkDuplicate('tel', e.target.value)}
+                          placeholder="+216 XX XXX XXX"
+                        />
+                        {duplicateWarning?.field === 'tel' && (
+                          <span style={{ color: '#ef4444', fontSize: '0.75rem', position: 'absolute', bottom: '-18px', left: 0 }}>
+                            ⚠️ Tél. existant : {duplicateWarning.client.societaire}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="form-group cf-span2">
                       <label>Adresse</label>
@@ -798,11 +916,19 @@ const Clients = () => {
                   <div className="cf-grid cf-grid-3">
                     <div className="form-group">
                       <label>Immatriculation</label>
-                      <input
-                        value={formData.immatriculation}
-                        onChange={e => setFormData({...formData, immatriculation: e.target.value})}
-                        placeholder="Ex: 123 TU 456"
-                      />
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          value={formData.immatriculation}
+                          onChange={e => setFormData({...formData, immatriculation: e.target.value})}
+                          onBlur={e => checkDuplicate('immatriculation', e.target.value)}
+                          placeholder="Ex: 123 TU 456"
+                        />
+                        {duplicateWarning?.field === 'immatriculation' && (
+                          <span style={{ color: '#ef4444', fontSize: '0.75rem', position: 'absolute', bottom: '-18px', left: 0 }}>
+                            ⚠️ Immatriculation existante : {duplicateWarning.client.societaire}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="form-group">
                       <label>Usage Véhicule</label>
@@ -976,7 +1102,7 @@ const Clients = () => {
                   <button
                     type="button"
                     className="cancel-btn"
-                    onClick={() => { setShowForm(false); setEditingId(null); setFormData(initialFormState); }}
+                    onClick={() => { setShowForm(false); setEditingId(null); setFormData(initialFormState); setDuplicateError(null); setDuplicateWarning(null); }}
                   >
                     Annuler
                   </button>

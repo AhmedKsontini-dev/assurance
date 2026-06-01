@@ -1,33 +1,20 @@
 ============================================ 
 Assurance App Launcher - Startup Log 
-Started: 25/05/2026 21:55:38,72 
+Started: 26/05/2026 12:23:45,51 
 ============================================ 
  
-[21:55:38,76] Starting WAMP Server... 
-[21:55:38,76] Found WAMP at: D:\WAMP\wampmanager.exe 
-[21:55:38,91] WAMP launched successfully 
-[21:55:38,91] Waiting for WAMP to initialize... 
-[21:55:53,14] Verifying WAMP services... 
-[21:55:58,21] WAMP initialization complete 
+[12:23:45,54] Starting WAMP Server... 
+[12:23:45,54] Found WAMP at: D:\WAMP\wampmanager.exe 
+[12:23:45,66] WAMP launched successfully 
+[12:23:45,66] Waiting for WAMP to initialize... 
+[12:24:00,14] Verifying WAMP services... 
+[12:24:05,20] WAMP initialization complete 
  
-[21:55:58,23] Starting Backend Server... 
-[21:55:58,25] Backend server started in minimized window 
-[21:55:58,25] Waiting for backend to initialize... 
-[21:56:03,19] Backend initialization complete 
+[12:24:05,21] Starting Backend Server... 
+[12:24:05,21] Backend server started in minimized window 
+[12:24:05,22] Waiting for backend to initialize... 
+[12:24:10,17] Backend initialization complete 
  
-[21:56:03,20] Starting Frontend... 
-[21:56:03,22] Frontend started in minimized window 
-[21:56:03,23] Waiting for frontend to initialize... 
-[21:56:08,16] Frontend initialization complete 
- 
-[21:56:08,17] All services started successfully 
- 
-[21:56:08,19] Services running: 
-  - WAMP Server (Apache + MySQL) 
-  - Backend Server (Node.js) 
-  - Frontend (React/Vite) 
- 
-[21:56:08,25] Access URLs: 
-  - Frontend: http://localhost:5173 
-  - Backend: http://localhost:3000 (check backend for actual port) 
-============================================ 
+[12:24:10,18] Starting Frontend... 
+[12:24:10,19] Frontend started in minimized window 
+[12:24:10,19] Waiting for frontend to initialize... 
