@@ -82,12 +82,31 @@ exports.createClient = async (req, res, next) => {
 exports.updateClient = async (req, res, next) => {
   try {
     console.log(`[DEBUG] Données reçues pour la modification du client (ID: ${req.params.id}) (req.body):`, req.body);
+    
+    // Fetch old client to detect montant_paye increase
+    const oldClient = await Client.getById(req.params.id);
+    
     const updated = await Client.update(req.params.id, req.body);
     if (!updated) {
       return res.status(404).json({
         status: 'fail',
         message: 'Client not found or no changes made'
       });
+    }
+
+    // Automatically create a versement if montant_paye increased during update
+    if (oldClient && req.body.montant_paye !== undefined) {
+      const newPaid = parseFloat(req.body.montant_paye) || 0;
+      const oldPaid = parseFloat(oldClient.montant_paye) || 0;
+      if (newPaid > oldPaid) {
+        const diff = newPaid - oldPaid;
+        await Versement.create({
+          client_id: req.params.id,
+          montant: diff,
+          date_versement: new Date().toISOString().split('T')[0],
+          methode_paiement: req.body.payment_method || 'Espece'
+        });
+      }
     }
 
     // Recalculate next payment date in case they edited payment details

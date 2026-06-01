@@ -8,7 +8,7 @@ exports.getEmployeeReports = async (req, res, next) => {
         u.name, 
         u.email,
         COUNT(c.id) as total_clients,
-        COALESCE(SUM(c.total), 0) as total_amount
+        COALESCE(SUM(c.montant_paye), 0) as total_amount
       FROM users u
       LEFT JOIN clients c ON u.id = c.created_by
       GROUP BY u.id, u.name, u.email
@@ -49,7 +49,7 @@ exports.getEmployeeDetails = async (req, res, next) => {
 
     // Get totals
     const [totalRows] = await db.query(
-      'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as sum FROM clients WHERE created_by = ?',
+      'SELECT COUNT(*) as count, COALESCE(SUM(montant_paye), 0) as sum FROM clients WHERE created_by = ?',
       [userId]
     );
 
@@ -108,26 +108,77 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
     // 2. Financial Summary
     // Today: client contracts created today + caisse net of today (ONLY card affected by caisse)
     const [todayClientStats] = await db.query(
-      'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as amount FROM clients WHERE created_by = ? AND DATE(created_at) = CURDATE()',
+      'SELECT COUNT(*) as count FROM clients WHERE created_by = ? AND DATE(created_at) = CURDATE()',
       [userId]
+    );
+    const [todayAmountStats] = await db.query(
+      `SELECT 
+        (
+          SELECT COALESCE(SUM(v.montant), 0) 
+          FROM client_versements v 
+          JOIN clients c ON v.client_id = c.id 
+          WHERE c.created_by = ? AND DATE(v.date_versement) = CURDATE()
+        )
+        +
+        (
+          SELECT COALESCE(SUM(GREATEST(0, c.montant_paye - COALESCE((SELECT SUM(montant) FROM client_versements WHERE client_id = c.id), 0))), 0)
+          FROM clients c
+          WHERE c.created_by = ? AND DATE(c.created_at) = CURDATE()
+        )
+       AS amount`,
+      [userId, userId]
     );
     const todayCaisseNet = await getTodayCaisseNet();
 
     // Week: client contracts only — NOT affected by caisse
     const [weekClientStats] = await db.query(
-      'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as amount FROM clients WHERE created_by = ? AND YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)',
+      'SELECT COUNT(*) as count FROM clients WHERE created_by = ? AND YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)',
       [userId]
+    );
+    const [weekAmountStats] = await db.query(
+      `SELECT 
+        (
+          SELECT COALESCE(SUM(v.montant), 0) 
+          FROM client_versements v 
+          JOIN clients c ON v.client_id = c.id 
+          WHERE c.created_by = ? AND YEARWEEK(v.date_versement, 1) = YEARWEEK(CURDATE(), 1)
+        )
+        +
+        (
+          SELECT COALESCE(SUM(GREATEST(0, c.montant_paye - COALESCE((SELECT SUM(montant) FROM client_versements WHERE client_id = c.id), 0))), 0)
+          FROM clients c
+          WHERE c.created_by = ? AND YEARWEEK(c.created_at, 1) = YEARWEEK(CURDATE(), 1)
+        )
+       AS amount`,
+      [userId, userId]
     );
 
     // Month: client contracts only — NOT affected by caisse
     const [monthClientStats] = await db.query(
-      'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as amount FROM clients WHERE created_by = ? AND MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE())',
+      'SELECT COUNT(*) as count FROM clients WHERE created_by = ? AND MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE())',
       [userId]
+    );
+    const [monthAmountStats] = await db.query(
+      `SELECT 
+        (
+          SELECT COALESCE(SUM(v.montant), 0) 
+          FROM client_versements v 
+          JOIN clients c ON v.client_id = c.id 
+          WHERE c.created_by = ? AND MONTH(v.date_versement) = MONTH(CURDATE()) AND YEAR(v.date_versement) = YEAR(CURDATE())
+        )
+        +
+        (
+          SELECT COALESCE(SUM(GREATEST(0, c.montant_paye - COALESCE((SELECT SUM(montant) FROM client_versements WHERE client_id = c.id), 0))), 0)
+          FROM clients c
+          WHERE c.created_by = ? AND MONTH(c.created_at) = MONTH(CURDATE()) AND YEAR(c.created_at) = YEAR(CURDATE())
+        )
+       AS amount`,
+      [userId, userId]
     );
 
     // Overall: client contracts only — NOT affected by caisse
     const [overallClientStats] = await db.query(
-      'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as amount FROM clients WHERE created_by = ?',
+      'SELECT COUNT(*) as count, COALESCE(SUM(montant_paye), 0) as amount FROM clients WHERE created_by = ?',
       [userId]
     );
 
@@ -135,14 +186,31 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
     let customDateStats = null;
     if (statsDate) {
       const [customRows] = await db.query(
-        'SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as amount FROM clients WHERE created_by = ? AND DATE(created_at) = ?',
+        'SELECT COUNT(*) as count FROM clients WHERE created_by = ? AND DATE(created_at) = ?',
         [userId, statsDate]
+      );
+      const [customAmountStats] = await db.query(
+        `SELECT 
+          (
+            SELECT COALESCE(SUM(v.montant), 0) 
+            FROM client_versements v 
+            JOIN clients c ON v.client_id = c.id 
+            WHERE c.created_by = ? AND DATE(v.date_versement) = ?
+          )
+          +
+          (
+            SELECT COALESCE(SUM(GREATEST(0, c.montant_paye - COALESCE((SELECT SUM(montant) FROM client_versements WHERE client_id = c.id), 0))), 0)
+            FROM clients c
+            WHERE c.created_by = ? AND DATE(c.created_at) = ?
+          )
+         AS amount`,
+        [userId, statsDate, userId, statsDate]
       );
       const customCaisseNet = await getCustomDayCaisseNet(statsDate);
 
       customDateStats = {
         count: customRows[0].count,
-        amount: parseFloat(customRows[0].amount) + customCaisseNet
+        amount: parseFloat(customAmountStats[0].amount) + customCaisseNet
       };
     }
 
@@ -184,16 +252,16 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
           // "Aujourd'hui" = client contracts of the day + caisse net of the day
           today: {
             count: todayClientStats[0].count,
-            amount: parseFloat(todayClientStats[0].amount) + todayCaisseNet
+            amount: parseFloat(todayAmountStats[0].amount) + todayCaisseNet
           },
           // "Cette semaine", "Ce mois", "Globale" = client contracts only, caisse-independent
           week: {
             count: weekClientStats[0].count,
-            amount: parseFloat(weekClientStats[0].amount)
+            amount: parseFloat(weekAmountStats[0].amount)
           },
           month: {
             count: monthClientStats[0].count,
-            amount: parseFloat(monthClientStats[0].amount)
+            amount: parseFloat(monthAmountStats[0].amount)
           },
           overall: {
             count: overallClientStats[0].count,
