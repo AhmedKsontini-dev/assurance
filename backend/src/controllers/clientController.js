@@ -1,6 +1,7 @@
 const Client = require('../models/clientModel');
 const Renewal = require('../models/renewalModel');
 const Versement = require('../models/versementModel');
+const Note = require('../models/noteModel');
 const logger = require('../utils/logger');
 
 exports.getAllClients = async (req, res, next) => {
@@ -444,6 +445,54 @@ exports.getCreators = async (req, res, next) => {
     res.status(200).json({
       status: 'success',
       data: creators
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getClientNotes = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const notes = await Note.getByClientId(id);
+    res.status(200).json({
+      status: 'success',
+      data: notes
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.addClientNote = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+    
+    if (!content || content.trim() === '') {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Le contenu de la note est requis.'
+      });
+    }
+
+    const noteId = await Note.create({
+      client_id: id,
+      user_id: req.user.id,
+      content
+    });
+
+    await logger.logActivity(
+      req.user.id,
+      'UPDATE',
+      id,
+      `Note ajoutée pour le client ID: ${id}`
+    );
+
+    res.status(201).json({
+      status: 'success',
+      message: 'Note ajoutée avec succès.',
+      noteId
     });
   } catch (err) {
     next(err);

@@ -29,4 +29,8 @@ router.get('/renew-stats', authMiddleware.checkPermission('admin'), clientContro
 router.post('/:id/versements', authMiddleware.checkPermission('edit'), clientController.addClientVersement);
 router.get('/:id/versements', clientController.getClientVersements);
 
+// Client notes routes
+router.post('/:id/notes', clientController.addClientNote);
+router.get('/:id/notes', clientController.getClientNotes);
+
 module.exports = router;

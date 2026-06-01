@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Eye, Edit, Trash2, RefreshCw, Filter, CheckCircle, XCircle, DollarSign, Plus, Printer, AlertCircle } from 'lucide-react';
+import { Eye, Edit, Trash2, RefreshCw, Filter, CheckCircle, XCircle, DollarSign, Plus, Printer, AlertCircle, MessageSquare, Send } from 'lucide-react';
 import RenewalModal from '../components/RenewalModal';
 
 const Clients = () => {
@@ -34,6 +34,12 @@ const Clients = () => {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState('Espece');
+
+  // Notes Modal State
+  const [viewingNotesClient, setViewingNotesClient] = useState(null);
+  const [clientNotes, setClientNotes] = useState([]);
+  const [newNoteContent, setNewNoteContent] = useState('');
+  const [isSubmittingNote, setIsSubmittingNote] = useState(false);
   
   // Filtering & Pagination state
   const [filters, setFilters] = useState({
@@ -323,6 +329,36 @@ const Clients = () => {
       setViewingClientVersements(res.data.data);
     } catch (err) {
       console.error('Failed to fetch client payments:', err);
+    }
+  };
+
+  const handleOpenNotes = async (client) => {
+    setOpenDropdownId(null);
+    setViewingNotesClient(client);
+    setClientNotes([]);
+    try {
+      const res = await api.get(`/clients/${client.id}/notes`);
+      setClientNotes(res.data.data);
+    } catch (err) {
+      console.error('Failed to fetch client notes:', err);
+    }
+  };
+
+  const handleAddNote = async (e) => {
+    e.preventDefault();
+    if (!newNoteContent.trim() || !viewingNotesClient) return;
+    
+    setIsSubmittingNote(true);
+    try {
+      await api.post(`/clients/${viewingNotesClient.id}/notes`, { content: newNoteContent });
+      setNewNoteContent('');
+      // Refresh notes
+      const res = await api.get(`/clients/${viewingNotesClient.id}/notes`);
+      setClientNotes(res.data.data);
+    } catch (err) {
+      console.error('Failed to add note:', err);
+    } finally {
+      setIsSubmittingNote(false);
     }
   };
 
@@ -1471,6 +1507,9 @@ const Clients = () => {
                         <button onClick={() => handleView(client)} className="dropdown-item view">
                           <Eye size={16} style={{marginRight: '8px'}} /> Voir
                         </button>
+                        <button onClick={() => handleOpenNotes(client)} className="dropdown-item notes" style={{ color: '#0284c7' }}>
+                          <MessageSquare size={16} style={{marginRight: '8px'}} /> Notes
+                        </button>
                         <button onClick={() => handleEdit(client)} className="dropdown-item edit">
                           <Edit size={16} style={{marginRight: '8px'}} /> Modifier
                         </button>
@@ -1656,6 +1695,107 @@ const Clients = () => {
                 <button type="submit" className="save-btn" style={{ width: 'auto' }}>Enregistrer</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Notes Modal */}
+      {viewingNotesClient && (
+        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+          <div className="modal-content animate-pop" style={{ maxWidth: '600px', width: '90%' }}>
+            <div className="modal-header">
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.5rem', color: '#0284c7', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <MessageSquare size={24} /> Discussion & Notes
+                </h2>
+                <p style={{ margin: '5px 0 0', color: '#64748b', fontSize: '0.9rem' }}>
+                  Client : {viewingNotesClient.societaire} ({viewingNotesClient.police})
+                </p>
+              </div>
+              <button className="close-modal" onClick={() => setViewingNotesClient(null)}>&times;</button>
+            </div>
+            
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '20px' }}>
+              <div className="notes-list" style={{
+                maxHeight: '400px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '15px',
+                paddingRight: '10px'
+              }}>
+                {clientNotes.length > 0 ? (
+                  clientNotes.map(note => (
+                    <div key={note.id} style={{
+                      background: '#f8fafc',
+                      borderLeft: '4px solid #0ea5e9',
+                      padding: '12px 16px',
+                      borderRadius: '8px',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.85rem' }}>
+                        <span style={{ fontWeight: 'bold', color: '#334155' }}>{note.author_name || 'Utilisateur'}</span>
+                        <span style={{ color: '#94a3b8' }}>
+                          {new Date(note.created_at).toLocaleString('fr-FR', {
+                            day: '2-digit', month: '2-digit', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      <p style={{ margin: 0, color: '#475569', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
+                        {note.content}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
+                    <MessageSquare size={48} style={{ opacity: 0.2, marginBottom: '10px' }} />
+                    <p>Aucune note enregistrée pour ce client.</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="note-input-container" style={{ borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
+                <form onSubmit={handleAddNote} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <textarea
+                    value={newNoteContent}
+                    onChange={(e) => setNewNoteContent(e.target.value)}
+                    placeholder="Ajouter une nouvelle note, résumé d'appel, information..."
+                    style={{
+                      width: '100%',
+                      minHeight: '80px',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      resize: 'vertical',
+                      fontFamily: 'inherit'
+                    }}
+                    required
+                  />
+                  <button 
+                    type="submit" 
+                    disabled={isSubmittingNote || !newNoteContent.trim()}
+                    style={{
+                      alignSelf: 'flex-end',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      background: '#0ea5e9',
+                      color: 'white',
+                      border: 'none',
+                      padding: '10px 20px',
+                      borderRadius: '8px',
+                      cursor: (isSubmittingNote || !newNoteContent.trim()) ? 'not-allowed' : 'pointer',
+                      fontWeight: 'bold',
+                      transition: 'opacity 0.2s',
+                      opacity: (isSubmittingNote || !newNoteContent.trim()) ? 0.7 : 1
+                    }}
+                  >
+                    <Send size={16} /> {isSubmittingNote ? 'Envoi...' : 'Ajouter la note'}
+                  </button>
+                </form>
+              </div>
+            </div>
           </div>
         </div>
       )}
