@@ -110,8 +110,11 @@ exports.updateClient = async (req, res, next) => {
       }
     }
 
-    // Recalculate next payment date in case they edited payment details
-    await recalculateNextPaymentDate(req.params.id);
+    // Recalculate next payment date only if the user did NOT explicitly provide one.
+    // If date_prochain_paiement is present in the body (even as ''), we respect the user's choice.
+    if (req.body.date_prochain_paiement === undefined) {
+      await recalculateNextPaymentDate(req.params.id);
+    }
 
     await logger.logActivity(
       req.user.id, 
