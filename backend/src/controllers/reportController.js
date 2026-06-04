@@ -7,10 +7,9 @@ exports.getEmployeeReports = async (req, res, next) => {
         u.id, 
         u.name, 
         u.email,
-        COUNT(c.id) as total_clients,
-        COALESCE(SUM(c.montant_paye), 0) as total_amount
+        (SELECT COUNT(*) FROM clients c WHERE c.created_by = u.id AND c.is_deleted = 0) as total_clients,
+        COALESCE((SELECT SUM(v.montant) FROM client_versements v JOIN clients c ON c.id = v.client_id WHERE v.user_id = u.id AND v.annule = 0 AND c.is_deleted = 0), 0) as total_amount
       FROM users u
-      LEFT JOIN clients c ON u.id = c.created_by
       GROUP BY u.id, u.name, u.email
     `;
     const [rows] = await db.query(query);
@@ -43,14 +42,16 @@ exports.getEmployeeDetails = async (req, res, next) => {
 
     // Get client list
     const [clientRows] = await db.query(
-      'SELECT * FROM clients WHERE created_by = ? ORDER BY created_at DESC',
+      'SELECT * FROM clients WHERE created_by = ? AND is_deleted = 0 ORDER BY created_at DESC',
       [userId]
     );
 
     // Get totals
     const [totalRows] = await db.query(
-      'SELECT COUNT(*) as count, COALESCE(SUM(montant_paye), 0) as sum FROM clients WHERE created_by = ?',
-      [userId]
+      `SELECT 
+        (SELECT COUNT(*) FROM clients WHERE created_by = ? AND is_deleted = 0) as count, 
+        COALESCE((SELECT SUM(v.montant) FROM client_versements v JOIN clients c ON c.id = v.client_id WHERE v.user_id = ? AND v.annule = 0 AND c.is_deleted = 0), 0) as sum`,
+      [userId, userId]
     );
 
     res.status(200).json({
@@ -108,103 +109,61 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
     // 2. Financial Summary
     // Today: client contracts created today + caisse net of today (ONLY card affected by caisse)
     const [todayClientStats] = await db.query(
-      'SELECT COUNT(*) as count FROM clients WHERE created_by = ? AND DATE(created_at) = CURDATE()',
+      'SELECT COUNT(*) as count FROM clients WHERE created_by = ? AND DATE(created_at) = CURDATE() AND is_deleted = 0',
       [userId]
     );
     const [todayAmountStats] = await db.query(
-      `SELECT 
-        (
-          SELECT COALESCE(SUM(v.montant), 0) 
-          FROM client_versements v 
-          JOIN clients c ON v.client_id = c.id 
-          WHERE c.created_by = ? AND DATE(v.date_versement) = CURDATE()
-        )
-        +
-        (
-          SELECT COALESCE(SUM(GREATEST(0, c.montant_paye - COALESCE((SELECT SUM(montant) FROM client_versements WHERE client_id = c.id), 0))), 0)
-          FROM clients c
-          WHERE c.created_by = ? AND DATE(c.created_at) = CURDATE()
-        )
-       AS amount`,
-      [userId, userId]
+      `SELECT COALESCE(SUM(v.montant), 0) as amount 
+       FROM client_versements v JOIN clients c ON c.id = v.client_id
+       WHERE v.user_id = ? AND DATE(v.date_versement) = CURDATE() AND v.annule = 0 AND c.is_deleted = 0`,
+      [userId]
     );
     const todayCaisseNet = await getTodayCaisseNet();
 
     // Week: client contracts only — NOT affected by caisse
     const [weekClientStats] = await db.query(
-      'SELECT COUNT(*) as count FROM clients WHERE created_by = ? AND YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)',
+      'SELECT COUNT(*) as count FROM clients WHERE created_by = ? AND YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1) AND is_deleted = 0',
       [userId]
     );
     const [weekAmountStats] = await db.query(
-      `SELECT 
-        (
-          SELECT COALESCE(SUM(v.montant), 0) 
-          FROM client_versements v 
-          JOIN clients c ON v.client_id = c.id 
-          WHERE c.created_by = ? AND YEARWEEK(v.date_versement, 1) = YEARWEEK(CURDATE(), 1)
-        )
-        +
-        (
-          SELECT COALESCE(SUM(GREATEST(0, c.montant_paye - COALESCE((SELECT SUM(montant) FROM client_versements WHERE client_id = c.id), 0))), 0)
-          FROM clients c
-          WHERE c.created_by = ? AND YEARWEEK(c.created_at, 1) = YEARWEEK(CURDATE(), 1)
-        )
-       AS amount`,
-      [userId, userId]
+      `SELECT COALESCE(SUM(v.montant), 0) as amount 
+       FROM client_versements v JOIN clients c ON c.id = v.client_id
+       WHERE v.user_id = ? AND YEARWEEK(v.date_versement, 1) = YEARWEEK(CURDATE(), 1) AND v.annule = 0 AND c.is_deleted = 0`,
+      [userId]
     );
 
     // Month: client contracts only — NOT affected by caisse
     const [monthClientStats] = await db.query(
-      'SELECT COUNT(*) as count FROM clients WHERE created_by = ? AND MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE())',
+      'SELECT COUNT(*) as count FROM clients WHERE created_by = ? AND MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE()) AND is_deleted = 0',
       [userId]
     );
     const [monthAmountStats] = await db.query(
-      `SELECT 
-        (
-          SELECT COALESCE(SUM(v.montant), 0) 
-          FROM client_versements v 
-          JOIN clients c ON v.client_id = c.id 
-          WHERE c.created_by = ? AND MONTH(v.date_versement) = MONTH(CURDATE()) AND YEAR(v.date_versement) = YEAR(CURDATE())
-        )
-        +
-        (
-          SELECT COALESCE(SUM(GREATEST(0, c.montant_paye - COALESCE((SELECT SUM(montant) FROM client_versements WHERE client_id = c.id), 0))), 0)
-          FROM clients c
-          WHERE c.created_by = ? AND MONTH(c.created_at) = MONTH(CURDATE()) AND YEAR(c.created_at) = YEAR(CURDATE())
-        )
-       AS amount`,
-      [userId, userId]
+      `SELECT COALESCE(SUM(v.montant), 0) as amount 
+       FROM client_versements v JOIN clients c ON c.id = v.client_id
+       WHERE v.user_id = ? AND MONTH(v.date_versement) = MONTH(CURDATE()) AND YEAR(v.date_versement) = YEAR(CURDATE()) AND v.annule = 0 AND c.is_deleted = 0`,
+      [userId]
     );
 
     // Overall: client contracts only — NOT affected by caisse
     const [overallClientStats] = await db.query(
-      'SELECT COUNT(*) as count, COALESCE(SUM(montant_paye), 0) as amount FROM clients WHERE created_by = ?',
-      [userId]
+      `SELECT 
+        (SELECT COUNT(*) FROM clients WHERE created_by = ? AND is_deleted = 0) as count,
+        COALESCE((SELECT SUM(v.montant) FROM client_versements v JOIN clients c ON c.id = v.client_id WHERE v.user_id = ? AND v.annule = 0 AND c.is_deleted = 0), 0) as amount`,
+      [userId, userId]
     );
 
     // Custom Date Stats: includes caisse net for that specific day
     let customDateStats = null;
     if (statsDate) {
       const [customRows] = await db.query(
-        'SELECT COUNT(*) as count FROM clients WHERE created_by = ? AND DATE(created_at) = ?',
+        'SELECT COUNT(*) as count FROM clients WHERE created_by = ? AND DATE(created_at) = ? AND is_deleted = 0',
         [userId, statsDate]
       );
       const [customAmountStats] = await db.query(
-        `SELECT 
-          (
-            SELECT COALESCE(SUM(v.montant), 0) 
-            FROM client_versements v 
-            JOIN clients c ON v.client_id = c.id 
-            WHERE c.created_by = ? AND DATE(v.date_versement) = ?
-          )
-          +
-          (
-            SELECT COALESCE(SUM(GREATEST(0, c.montant_paye - COALESCE((SELECT SUM(montant) FROM client_versements WHERE client_id = c.id), 0))), 0)
-            FROM clients c
-            WHERE c.created_by = ? AND DATE(c.created_at) = ?
-          )
-         AS amount`,
-        [userId, statsDate, userId, statsDate]
+        `SELECT COALESCE(SUM(v.montant), 0) as amount 
+         FROM client_versements v JOIN clients c ON c.id = v.client_id
+         WHERE v.user_id = ? AND DATE(v.date_versement) = ? AND v.annule = 0 AND c.is_deleted = 0`,
+        [userId, statsDate]
       );
       const customCaisseNet = await getCustomDayCaisseNet(statsDate);
 
@@ -217,7 +176,7 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
     // 3. Clients List (Filtered by statsDate if provided)
     // Show only own clients for all roles (including ADMIN)
     const userRole = userRows[0].role;
-    let clientQuery = 'SELECT * FROM clients WHERE created_by = ?';
+    let clientQuery = 'SELECT * FROM clients WHERE created_by = ? AND is_deleted = 0';
     let clientParams = [userId];
     
     if (statsDate) {
@@ -228,7 +187,7 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
     const [clients] = await db.query(clientQuery, clientParams);
 
     // Fetch all clients for global alerts (like payment reminders)
-    const [allClients] = await db.query('SELECT * FROM clients ORDER BY created_at DESC');
+    const [allClients] = await db.query('SELECT * FROM clients WHERE is_deleted = 0 ORDER BY created_at DESC');
 
     console.log('[DEBUG] User role:', userRole, 'User ID:', userId);
     console.log('[DEBUG] Client query:', clientQuery);

@@ -3,6 +3,7 @@ const Renewal = require('../models/renewalModel');
 const Versement = require('../models/versementModel');
 const Note = require('../models/noteModel');
 const logger = require('../utils/logger');
+const ClientHistory = require('../models/clientHistoryModel');
 
 exports.getAllClients = async (req, res, next) => {
   try {
@@ -63,6 +64,27 @@ exports.createClient = async (req, res, next) => {
       created_by: req.user.id
     });
 
+    // Create initial versement if montant_paye > 0
+    if (req.body.montant_paye && parseFloat(req.body.montant_paye) > 0) {
+      await Versement.create({
+        client_id: clientId,
+        montant: parseFloat(req.body.montant_paye),
+        date_versement: req.body.payment_date || new Date().toISOString().split('T')[0],
+        methode_paiement: req.body.payment_method || req.body.paiement || 'Espece',
+        user_id: req.user.id
+      });
+    }
+
+    // Log client creation to client history
+    await ClientHistory.create({
+      client_id: clientId,
+      utilisateur_id: req.user.id,
+      nom_utilisateur: req.user.name || 'Utilisateur',
+      action_effectuee: 'Création du client',
+      ancienne_valeur: null,
+      nouvelle_valeur: req.body.societaire || 'Nouveau client'
+    });
+
     await logger.logActivity(
       req.user.id, 
       'ADD', 
@@ -87,6 +109,51 @@ exports.updateClient = async (req, res, next) => {
     // Fetch old client to detect montant_paye increase
     const oldClient = await Client.getById(req.params.id);
     
+    // Handle new partial payment from frontend
+    let montantVerseAujourdHui = req.body.montant_verse_aujourd_hui;
+    delete req.body.montant_verse_aujourd_hui;
+
+    if (montantVerseAujourdHui !== undefined && parseFloat(montantVerseAujourdHui) > 0) {
+      const addedAmount = parseFloat(montantVerseAujourdHui);
+      const currentPaid = parseFloat(oldClient.montant_paye) || 0;
+      req.body.montant_paye = currentPaid + addedAmount;
+      
+      await Versement.create({
+        client_id: req.params.id,
+        montant: addedAmount,
+        date_versement: req.body.payment_date || new Date().toISOString().split('T')[0],
+        methode_paiement: req.body.payment_method || oldClient.paiement || 'Espece',
+        user_id: req.user.id
+      });
+    } else if (req.body.montant_paye !== undefined) {
+      // Fallback for old frontend sending raw montant_paye
+      const newPaid = parseFloat(req.body.montant_paye) || 0;
+      const oldPaid = parseFloat(oldClient.montant_paye) || 0;
+      if (newPaid !== oldPaid) {
+        const diff = newPaid - oldPaid;
+        await Versement.create({
+          client_id: req.params.id,
+          montant: diff,
+          date_versement: req.body.payment_date || new Date().toISOString().split('T')[0],
+          methode_paiement: req.body.payment_method || req.body.paiement || 'Espece',
+          user_id: req.user.id
+        });
+      }
+    }
+
+    // Calculate reste_a_payer
+    const total = req.body.total !== undefined ? (parseFloat(req.body.total) || 0) : (parseFloat(oldClient.total) || 0);
+    const montantPaye = req.body.montant_paye !== undefined ? (parseFloat(req.body.montant_paye) || 0) : (parseFloat(oldClient.montant_paye) || 0);
+    
+    req.body.reste_a_payer = total - montantPaye;
+    
+    // Auto update status based on remains
+    if (req.body.reste_a_payer <= 0 && total > 0) {
+      req.body.payment_status = 'Paid';
+    } else if (montantPaye > 0) {
+      req.body.payment_status = 'Partial';
+    }
+
     const updated = await Client.update(req.params.id, req.body);
     if (!updated) {
       return res.status(404).json({
@@ -95,17 +162,53 @@ exports.updateClient = async (req, res, next) => {
       });
     }
 
-    // Automatically create a versement if montant_paye increased during update
-    if (oldClient && req.body.montant_paye !== undefined) {
-      const newPaid = parseFloat(req.body.montant_paye) || 0;
-      const oldPaid = parseFloat(oldClient.montant_paye) || 0;
-      if (newPaid > oldPaid) {
-        const diff = newPaid - oldPaid;
-        await Versement.create({
-          client_id: req.params.id,
-          montant: diff,
-          date_versement: new Date().toISOString().split('T')[0],
-          methode_paiement: req.body.payment_method || 'Espece'
+    // Log history of changes
+    if (oldClient) {
+      const userName = req.user.name || 'Utilisateur';
+      const userId = req.user.id;
+      const clientId = req.params.id;
+      const changes = [];
+
+      if (req.body.payment_status !== undefined && req.body.payment_status !== oldClient.payment_status) {
+        changes.push({
+          action: 'Modification du statut de paiement',
+          oldVal: oldClient.payment_status,
+          newVal: req.body.payment_status
+        });
+      }
+
+      if (req.body.montant_paye !== undefined && parseFloat(req.body.montant_paye) !== parseFloat(oldClient.montant_paye)) {
+        changes.push({
+          action: 'Modification du montant payé',
+          oldVal: oldClient.montant_paye ? `${parseFloat(oldClient.montant_paye).toFixed(2)} DT` : '0.00 DT',
+          newVal: `${parseFloat(req.body.montant_paye).toFixed(2)} DT`
+        });
+      }
+
+      if (req.body.tel !== undefined && req.body.tel !== oldClient.tel) {
+        changes.push({
+          action: 'Modification du téléphone',
+          oldVal: oldClient.tel || '-',
+          newVal: req.body.tel || '-'
+        });
+      }
+
+      if (req.body.adresse !== undefined && req.body.adresse !== oldClient.adresse) {
+        changes.push({
+          action: "Modification de l'adresse",
+          oldVal: oldClient.adresse || '-',
+          newVal: req.body.adresse || '-'
+        });
+      }
+
+      for (const change of changes) {
+        await ClientHistory.create({
+          client_id: clientId,
+          utilisateur_id: userId,
+          nom_utilisateur: userName,
+          action_effectuee: change.action,
+          ancienne_valeur: change.oldVal,
+          nouvelle_valeur: change.newVal
         });
       }
     }
@@ -134,6 +237,25 @@ exports.updateClient = async (req, res, next) => {
 
 exports.deleteClient = async (req, res, next) => {
   try {
+    const oldClient = await Client.getById(req.params.id);
+    if (!oldClient) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Client not found'
+      });
+    }
+
+    // Log deletion history BEFORE deleting the client so the foreign key can resolve it and set to null later
+    const userName = req.user.name || 'Utilisateur';
+    await ClientHistory.create({
+      client_id: req.params.id,
+      utilisateur_id: req.user.id,
+      nom_utilisateur: userName,
+      action_effectuee: 'Suppression du client',
+      ancienne_valeur: oldClient.societaire || `Client ID ${req.params.id}`,
+      nouvelle_valeur: null
+    });
+
     const deleted = await Client.delete(req.params.id);
     if (!deleted) {
       return res.status(404).json({
@@ -141,6 +263,9 @@ exports.deleteClient = async (req, res, next) => {
         message: 'Client not found'
       });
     }
+
+    // Annuler tous les versements liés à ce client pour corriger la caisse
+    await Versement.cancelByClientId(req.params.id);
 
     await logger.logActivity(
       req.user.id, 
@@ -177,6 +302,9 @@ exports.renewClientSubscription = async (req, res, next) => {
       date_prochain_paiement,
       versements
     } = req.body;
+
+    // Fetch old client to detect changes
+    const oldClient = await Client.getById(id);
 
     // 1. Create renewal history record
     const renewalId = await Renewal.create({
@@ -216,7 +344,8 @@ exports.renewClientSubscription = async (req, res, next) => {
               client_id: id,
               montant: parseFloat(v.montant),
               date_versement: v.date_versement || new Date().toISOString().split('T')[0],
-              methode_paiement: v.methode_paiement || paiement || 'Espece'
+              methode_paiement: v.methode_paiement || paiement || 'Espece',
+              user_id: req.user.id
             });
           }
         }
@@ -230,6 +359,32 @@ exports.renewClientSubscription = async (req, res, next) => {
     }
     
     await Client.update(id, updateData);
+
+    // Log history of modifications during renewal
+    const userName = req.user.name || 'Utilisateur';
+    if (oldClient) {
+      if (updateData.payment_status !== undefined && updateData.payment_status !== oldClient.payment_status) {
+        await ClientHistory.create({
+          client_id: id,
+          utilisateur_id: req.user.id,
+          nom_utilisateur: userName,
+          action_effectuee: 'Modification du statut de paiement',
+          ancienne_valeur: oldClient.payment_status || 'Unpaid',
+          nouvelle_valeur: updateData.payment_status
+        });
+      }
+
+      if (updateData.montant_paye !== undefined && parseFloat(updateData.montant_paye) !== parseFloat(oldClient.montant_paye)) {
+        await ClientHistory.create({
+          client_id: id,
+          utilisateur_id: req.user.id,
+          nom_utilisateur: userName,
+          action_effectuee: 'Modification du montant payé',
+          ancienne_valeur: oldClient.montant_paye ? `${parseFloat(oldClient.montant_paye).toFixed(2)} DT` : '0.00 DT',
+          nouvelle_valeur: `${parseFloat(updateData.montant_paye).toFixed(2)} DT`
+        });
+      }
+    }
 
     // 3. Log activity
     await logger.logActivity(
@@ -298,16 +453,18 @@ exports.addClientVersement = async (req, res, next) => {
       client_id: id,
       montant: parseFloat(montant),
       date_versement: date_versement || new Date().toISOString().split('T')[0],
-      methode_paiement: methode_paiement || 'Espece'
+      methode_paiement: methode_paiement || 'Espece',
+      user_id: req.user.id
     });
 
     // Calculate new montant_paye
     const currentPaid = parseFloat(client.montant_paye || 0);
     const newPaid = currentPaid + parseFloat(montant);
     const total = parseFloat(client.total || 0);
+    const reste_a_payer = total - newPaid;
 
     let payment_status = 'Unpaid';
-    if (newPaid >= total) {
+    if (newPaid >= total && total > 0) {
       payment_status = 'Paid';
     } else if (newPaid > 0) {
       payment_status = 'Partial';
@@ -315,11 +472,34 @@ exports.addClientVersement = async (req, res, next) => {
 
     const updateData = {
       montant_paye: newPaid,
+      reste_a_payer: reste_a_payer,
       payment_status,
       payment_date: payment_status === 'Paid' ? (date_versement || new Date().toISOString().split('T')[0]) : client.payment_date
     };
 
     await Client.update(id, updateData);
+
+    // Log history of modifications
+    const userName = req.user.name || 'Utilisateur';
+    await ClientHistory.create({
+      client_id: id,
+      utilisateur_id: req.user.id,
+      nom_utilisateur: userName,
+      action_effectuee: 'Modification du montant payé',
+      ancienne_valeur: client.montant_paye ? `${parseFloat(client.montant_paye).toFixed(2)} DT` : '0.00 DT',
+      nouvelle_valeur: `${parseFloat(newPaid).toFixed(2)} DT`
+    });
+
+    if (payment_status !== client.payment_status) {
+      await ClientHistory.create({
+        client_id: id,
+        utilisateur_id: req.user.id,
+        nom_utilisateur: userName,
+        action_effectuee: 'Modification du statut de paiement',
+        ancienne_valeur: client.payment_status || 'Unpaid',
+        nouvelle_valeur: payment_status
+      });
+    }
 
     // Recalculate next payment date
     await recalculateNextPaymentDate(id);
@@ -496,6 +676,19 @@ exports.addClientNote = async (req, res, next) => {
       status: 'success',
       message: 'Note ajoutée avec succès.',
       noteId
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getClientHistory = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const history = await ClientHistory.getByClientId(id);
+    res.status(200).json({
+      status: 'success',
+      data: history
     });
   } catch (err) {
     next(err);

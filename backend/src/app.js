@@ -11,14 +11,16 @@ const eventRoutes = require('./routes/eventRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const errorHandler = require('./middlewares/errorHandler');
 const Caisse = require('./models/caisseModel');
+const ClientHistory = require('./models/clientHistoryModel');
 
 const app = express();
 
 // Middlewares
 app.use(cors({
   origin: [
-  'http://localhost:5173',
-  'http://100.113.217.68:5173'
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://100.113.217.68:5173'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   credentials: true
@@ -27,6 +29,7 @@ app.use(express.json());
 
 // Initialize caisse tables
 Caisse.initTables().catch(err => console.error('❌ Caisse tables init failed:', err.message));
+ClientHistory.initTable().catch(err => console.error('❌ ClientHistory table init failed:', err.message));
 
 // Routes
 app.use('/api/auth', authRoutes);

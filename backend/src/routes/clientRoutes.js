@@ -33,4 +33,7 @@ router.get('/:id/versements', clientController.getClientVersements);
 router.post('/:id/notes', clientController.addClientNote);
 router.get('/:id/notes', clientController.getClientNotes);
 
+// Client history routes
+router.get('/:id/history', clientController.getClientHistory);
+
 module.exports = router;

@@ -43,7 +43,9 @@ const initDB = async () => {
       payment_method VARCHAR(50),
       category VARCHAR(100),
       montant_paye DECIMAL(10, 2) DEFAULT 0.00,
+      reste_a_payer DECIMAL(10, 2) DEFAULT 0.00,
       date_prochain_paiement DATE,
+      is_deleted BOOLEAN DEFAULT 0,
       FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
     );
     `;

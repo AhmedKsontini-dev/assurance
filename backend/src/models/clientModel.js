@@ -9,6 +9,7 @@ class Client {
       FROM clients
       LEFT JOIN users 
         ON users.id = clients.created_by
+      WHERE clients.is_deleted = 0
     `;
     const params = [];
     const conditions = [];
@@ -51,7 +52,7 @@ class Client {
       FROM clients
       LEFT JOIN users 
         ON users.id = clients.created_by
-      WHERE clients.id = ?
+      WHERE clients.id = ? AND clients.is_deleted = 0
     `, [id]);
 
     return rows[0];
@@ -75,8 +76,8 @@ class Client {
         reduction, rc, papier, usage_vehicle, immatriculation, 
         date_effet, date_expiration, total, created_by,
         payment_status, payment_date, payment_method, category,
-        montant_paye, date_prochain_paiement, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`,
+        montant_paye, reste_a_payer, date_prochain_paiement, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`,
       [
         police || null,
         societaire || null,
@@ -98,6 +99,7 @@ class Client {
         payment_method || null,
         category || null,
         toNum(montant_paye) || 0.00,
+        toNum(total) - (toNum(montant_paye) || 0.00),
         toDate(date_prochain_paiement),
         toDate(created_at)
       ]
@@ -110,7 +112,7 @@ class Client {
     const fields = [];
     const values = [];
 
-    const numFields = ['montant', 'reduction', 'total', 'montant_paye'];
+    const numFields = ['montant', 'reduction', 'total', 'montant_paye', 'reste_a_payer'];
     const dateFields = ['date_effet', 'date_expiration', 'payment_date', 'date_prochain_paiement', 'created_at'];
 
     Object.keys(data).forEach(key => {
@@ -146,7 +148,7 @@ class Client {
   }
 
   static async delete(id) {
-    const [result] = await db.query('DELETE FROM clients WHERE id = ?', [id]);
+    const [result] = await db.query('UPDATE clients SET is_deleted = 1 WHERE id = ?', [id]);
     return result.affectedRows > 0;
   }
 
@@ -162,6 +164,7 @@ class Client {
          AND date_expiration >= CURDATE() - INTERVAL 30 DAY
          AND date_expiration <= CURDATE() + INTERVAL ? DAY
          AND (renewal_status IS NULL OR renewal_status != 'Refused')
+         AND is_deleted = 0
        ORDER BY date_expiration ASC`,
       [days]
     );
@@ -177,7 +180,8 @@ class Client {
        WHERE date_expiration IS NOT NULL 
          AND date_expiration >= CURDATE()
          AND date_expiration <= CURDATE() + INTERVAL ? DAY
-         AND (renewal_status IS NULL OR renewal_status != 'Refused')`,
+         AND (renewal_status IS NULL OR renewal_status != 'Refused')
+         AND is_deleted = 0`,
       [days]
     );
     return rows[0].count;
@@ -230,7 +234,7 @@ class Client {
         users.name AS creator_name
       FROM clients
       LEFT JOIN users ON users.id = clients.created_by
-      WHERE ${conditions.join(' OR ')}
+      WHERE (${conditions.join(' OR ')}) AND clients.is_deleted = 0
       LIMIT 1
     `;
 
