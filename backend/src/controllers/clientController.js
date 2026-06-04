@@ -40,22 +40,13 @@ exports.createClient = async (req, res, next) => {
   try {
     console.log('[DEBUG] Données reçues pour la création du client (req.body):', req.body);
 
-    const { police, immatriculation, tel } = req.body;
-    const existingClient = await Client.findBySimilarities(police, immatriculation, tel);
-    
-    if (existingClient) {
+    // Verify exact duplicate based on all fields
+    const duplicateClient = await Client.isExactDuplicate(req.body);
+    if (duplicateClient) {
+      // Block creation – client already exists with identical data
       return res.status(409).json({
         status: 'fail',
-        message: 'Un client similaire existe déjà.',
-        existingClient: {
-          id: existingClient.id,
-          societaire: existingClient.societaire,
-          tel: existingClient.tel,
-          created_at: existingClient.created_at,
-          creator_name: existingClient.creator_name,
-          police: existingClient.police,
-          immatriculation: existingClient.immatriculation
-        }
+        message: 'Ce client existe déjà dans la base de données.'
       });
     }
 

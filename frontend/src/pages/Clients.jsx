@@ -24,6 +24,7 @@ const Clients = () => {
   const [categoryStats, setCategoryStats] = useState({ total: 0, stats: [] });
   const [duplicateWarning, setDuplicateWarning] = useState(null);
   const [duplicateError, setDuplicateError] = useState(null);
+  const [duplicateToast, setDuplicateToast] = useState(null);
   const [activeDetailTab, setActiveDetailTab] = useState('infos');
   const [clientHistory, setClientHistory] = useState([]);
   
@@ -256,9 +257,14 @@ const Clients = () => {
       if (isAdmin) fetchCategoryStats();
       window.dispatchEvent(new Event('refresh-alerts'));
     } catch (err) {
-      if (err.response?.status === 409 && err.response?.data?.existingClient) {
-        setDuplicateError(err.response.data.existingClient);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (err.response?.status === 409) {
+        const existing = err.response.data.existingClient || null;
+        setDuplicateError(existing);
+        setDuplicateToast({ client: existing, visible: true });
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+          setDuplicateToast(null);
+        }, 5000);
       } else {
         alert(err.response?.data?.message || 'Operation failed');
       }
@@ -851,23 +857,7 @@ const Clients = () => {
               }}>&times;</button>
             </div>
             <div className="modal-body">
-              {duplicateError && (
-                <div style={{ background: '#fef2f2', border: '1px solid #f87171', color: '#b91c1c', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
-                  <h4 style={{ margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>⚠️</span> Un client similaire existe déjà !
-                  </h4>
-                  <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.9rem' }}>
-                    <li><strong>Nom :</strong> {duplicateError.societaire}</li>
-                    <li><strong>Téléphone :</strong> {duplicateError.tel || '-'}</li>
-                    <li><strong>Police :</strong> {duplicateError.police || '-'}</li>
-                    <li><strong>Immatriculation :</strong> {duplicateError.immatriculation || '-'}</li>
-                    <li><strong>Créé le :</strong> {new Date(duplicateError.created_at).toLocaleDateString()} par {duplicateError.creator_name || 'Inconnu'}</li>
-                  </ul>
-                  <p style={{ margin: '10px 0 0 0', fontSize: '0.85rem' }}>
-                    Veuillez vérifier les informations saisies avant de continuer. L'enregistrement a été bloqué pour éviter un doublon.
-                  </p>
-                </div>
-              )}
+              {/* Duplicate toast is shown outside the form as a floating notification */}
               <form className="add-form-expanded" onSubmit={handleSubmit}>
 
                 {/* ── Section 1 : Informations Client ── */}
@@ -1432,19 +1422,29 @@ const Clients = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {clientHistory.map(h => (
-                            <tr key={h.id}>
-                              <td><strong>{h.nom_utilisateur}</strong></td>
-                              <td>
-                                <span className="badge-count" style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.8rem', padding: '4px 8px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
-                                  {h.action_effectuee}
-                                </span>
-                              </td>
-                              <td style={{ color: '#e74c3c', maxWidth: '180px', wordBreak: 'break-all' }}>{h.ancienne_valeur || '-'}</td>
-                              <td style={{ color: '#2ecc71', fontWeight: 'bold', maxWidth: '180px', wordBreak: 'break-all' }}>{h.nouvelle_valeur || '-'}</td>
-                              <td style={{ fontSize: '0.85rem', color: '#64748b' }}>{new Date(h.date_modification).toLocaleString('fr-FR')}</td>
-                            </tr>
-                          ))}
+                          {clientHistory.map(h => {
+                            const translateVal = (val) => {
+                              if (!val) return '-';
+                              return val
+                                .replace(/\bPaid\b/g, 'Payé')
+                                .replace(/\bUnpaid\b/g, 'Impayé')
+                                .replace(/\bPartial\b/g, 'Partiellement payé');
+                            };
+                            return (
+                              <tr key={h.id}>
+                                <td><strong>{h.nom_utilisateur}</strong></td>
+                                <td>
+                                  <span className="badge-count" style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.8rem', padding: '4px 8px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+                                    {h.action_effectuee}
+                                  </span>
+                                </td>
+                                <td style={{ color: '#e74c3c', maxWidth: '180px', wordBreak: 'break-all' }}>{translateVal(h.ancienne_valeur)}</td>
+                                <td style={{ color: '#2ecc71', fontWeight: 'bold', maxWidth: '180px', wordBreak: 'break-all' }}>{translateVal(h.nouvelle_valeur)}</td>
+                                <td style={{ fontSize: '0.85rem', color: '#64748b' }}>{new Date(h.date_modification).toLocaleString('fr-FR')}</td>
+                              </tr>
+                            );
+                          })}
+
                         </tbody>
                       </table>
                     ) : (
@@ -1918,8 +1918,82 @@ const Clients = () => {
           </div>
         </div>
       )}
+
+      {/* ── Duplicate Client Toast Notification ── */}
+      {duplicateToast && (
+        <div className="duplicate-toast-overlay" onClick={() => setDuplicateToast(null)}>
+          <div className="duplicate-toast" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="duplicate-toast-header">
+              <div className="duplicate-toast-icon-wrap">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+              </div>
+              <div className="duplicate-toast-title">
+                <span className="duplicate-toast-badge">Doublon détecté</span>
+                <h4>Enregistrement bloqué</h4>
+              </div>
+              <button className="duplicate-toast-close" onClick={() => setDuplicateToast(null)} aria-label="Fermer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <p className="duplicate-toast-desc">
+              Un client identique existe déjà dans la base de données. Veuillez vérifier les informations ci-dessous avant de soumettre à nouveau.
+            </p>
+
+            {duplicateToast.client && (
+              <div className="duplicate-toast-details">
+                {duplicateToast.client.societaire && (
+                  <div className="duplicate-toast-row">
+                    <span className="dup-label">👤 Nom</span>
+                    <span className="dup-value">{duplicateToast.client.societaire}</span>
+                  </div>
+                )}
+                {duplicateToast.client.police && (
+                  <div className="duplicate-toast-row">
+                    <span className="dup-label">📋 Police</span>
+                    <span className="dup-value">{duplicateToast.client.police}</span>
+                  </div>
+                )}
+                {duplicateToast.client.tel && (
+                  <div className="duplicate-toast-row">
+                    <span className="dup-label">📞 Téléphone</span>
+                    <span className="dup-value">{duplicateToast.client.tel}</span>
+                  </div>
+                )}
+                {duplicateToast.client.immatriculation && (
+                  <div className="duplicate-toast-row">
+                    <span className="dup-label">🚗 Immatriculation</span>
+                    <span className="dup-value">{duplicateToast.client.immatriculation}</span>
+                  </div>
+                )}
+                {duplicateToast.client.created_at && (
+                  <div className="duplicate-toast-row">
+                    <span className="dup-label">📅 Créé le</span>
+                    <span className="dup-value">
+                      {new Date(duplicateToast.client.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                      {duplicateToast.client.creator_name ? ` — par ${duplicateToast.client.creator_name}` : ''}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Progress bar */}
+            <div className="duplicate-toast-progress">
+              <div className="duplicate-toast-progress-bar" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+
 };
 
 export default Clients;

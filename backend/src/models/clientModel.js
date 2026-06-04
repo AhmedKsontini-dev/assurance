@@ -35,8 +35,8 @@ class Client {
     }
 
     if (conditions.length > 0) {
-      query += ` WHERE ` + conditions.join(' AND ');
-    }
+        query += ` AND ` + conditions.join(' AND ');
+      }
 
     query += ` ORDER BY clients.created_at DESC, clients.id DESC`;
 
@@ -203,6 +203,30 @@ class Client {
    * Find a client by exact matches on police or immatriculation
    * We exclude empty strings and nulls from being matched.
    */
+  static async isExactDuplicate(data) {
+    // List of fields to compare for exact duplicate detection (including date fields)
+    const fields = [
+      'police', 'societaire', 'adresse', 'tel', 'paiement', 'montant',
+      'reduction', 'rc', 'papier', 'usage_vehicle', 'immatriculation',
+      'date_effet', 'date_expiration', 'total', 'renewal_status',
+      'payment_status', 'payment_date', 'payment_method', 'category',
+      'montant_paye', 'date_prochain_paiement'
+    ];
+    // Convert empty strings to null for proper MySQL DATE handling
+    const params = fields.map(f => {
+      const val = data[f];
+      if (typeof val === 'string' && val.trim() === '') {
+        return null;
+      }
+      return val ?? null;
+    });
+    // Build null‑safe equality conditions
+    const conditions = fields.map(f => `${f} <=> ?`).join(' AND ');
+    const query = `SELECT * FROM clients WHERE ${conditions} AND is_deleted = 0 LIMIT 1`;
+    const [rows] = await db.query(query, params);
+    return rows[0] || null;
+  }
+
   static async findBySimilarities(police, immatriculation, tel) {
     const conditions = [];
     const params = [];

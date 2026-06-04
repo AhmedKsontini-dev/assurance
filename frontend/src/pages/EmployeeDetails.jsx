@@ -430,19 +430,28 @@ const EmployeeDetails = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {clientHistory.map(h => (
-                            <tr key={h.id}>
-                              <td><strong>{h.nom_utilisateur}</strong></td>
-                              <td>
-                                <span className="badge-count" style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.8rem', padding: '4px 8px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
-                                  {h.action_effectuee}
-                                </span>
-                              </td>
-                              <td style={{ color: '#e74c3c', maxWidth: '180px', wordBreak: 'break-all' }}>{h.ancienne_valeur || '-'}</td>
-                              <td style={{ color: '#2ecc71', fontWeight: 'bold', maxWidth: '180px', wordBreak: 'break-all' }}>{h.nouvelle_valeur || '-'}</td>
-                              <td style={{ fontSize: '0.85rem', color: '#64748b' }}>{new Date(h.date_modification).toLocaleString('fr-FR')}</td>
-                            </tr>
-                          ))}
+                          {clientHistory.map(h => {
+                            const translateVal = (val) => {
+                              if (!val) return '-';
+                              return val
+                                .replace(/\bPaid\b/g, 'Payé')
+                                .replace(/\bUnpaid\b/g, 'Impayé')
+                                .replace(/\bPartial\b/g, 'Partiellement payé');
+                            };
+                            return (
+                              <tr key={h.id}>
+                                <td><strong>{h.nom_utilisateur}</strong></td>
+                                <td>
+                                  <span className="badge-count" style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.8rem', padding: '4px 8px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+                                    {h.action_effectuee}
+                                  </span>
+                                </td>
+                                <td style={{ color: '#e74c3c', maxWidth: '180px', wordBreak: 'break-all' }}>{translateVal(h.ancienne_valeur)}</td>
+                                <td style={{ color: '#2ecc71', fontWeight: 'bold', maxWidth: '180px', wordBreak: 'break-all' }}>{translateVal(h.nouvelle_valeur)}</td>
+                                <td style={{ fontSize: '0.85rem', color: '#64748b' }}>{new Date(h.date_modification).toLocaleString('fr-FR')}</td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     ) : (

@@ -3168,6 +3168,7 @@ tr:hover td {
   font-size: 1rem;
 }
 
+
 @keyframes pulse-warning {
   0% {
     box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
@@ -3177,6 +3178,199 @@ tr:hover td {
   }
   100% {
     box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Duplicate Client Toast Notification
+═══════════════════════════════════════════════════════════════ */
+
+/* Transparent clickable backdrop (only blocks interaction on toast area) */
+.duplicate-toast-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+/* The toast card */
+.duplicate-toast {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  width: 380px;
+  max-width: calc(100vw - 48px);
+  background: #ffffff;
+  border-radius: 16px;
+  border-left: 5px solid #dc2626;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.18),
+    0 8px 24px rgba(220, 38, 38, 0.12),
+    0 0 0 1px rgba(220, 38, 38, 0.08);
+  overflow: hidden;
+  pointer-events: auto;
+  animation: toast-slide-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  z-index: 9999;
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(120%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* Header row */
+.duplicate-toast-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 18px 12px;
+  background: linear-gradient(135deg, #fff5f5 0%, #fef2f2 100%);
+  border-bottom: 1px solid #fecaca;
+}
+
+/* Icon circle */
+.duplicate-toast-icon-wrap {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
+  animation: pulse-warning 2s ease-in-out infinite;
+}
+
+/* Title block */
+.duplicate-toast-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.duplicate-toast-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #dc2626;
+  background: #fee2e2;
+  padding: 2px 8px;
+  border-radius: 20px;
+  margin-bottom: 4px;
+}
+
+.duplicate-toast-title h4 {
+  margin: 0;
+  font-size: 0.97rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.3;
+}
+
+/* Close button */
+.duplicate-toast-close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #94a3b8;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, background 0.2s;
+}
+
+.duplicate-toast-close:hover {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+/* Description text */
+.duplicate-toast-desc {
+  padding: 12px 18px 4px;
+  font-size: 0.82rem;
+  color: #64748b;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* Details table */
+.duplicate-toast-details {
+  margin: 8px 18px 14px;
+  border-radius: 10px;
+  border: 1px solid #f1f5f9;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.duplicate-toast-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.82rem;
+}
+
+.duplicate-toast-row:last-child {
+  border-bottom: none;
+}
+
+.dup-label {
+  flex-shrink: 0;
+  width: 130px;
+  font-weight: 600;
+  color: #475569;
+  font-size: 0.78rem;
+}
+
+.dup-value {
+  color: #1e293b;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Progress bar countdown */
+.duplicate-toast-progress {
+  height: 3px;
+  background: #f1f5f9;
+  overflow: hidden;
+}
+
+.duplicate-toast-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #ef4444, #f97316);
+  border-radius: 0 2px 2px 0;
+  animation: toast-progress 5s linear forwards;
+  transform-origin: left;
+}
+
+@keyframes toast-progress {
+  from { width: 100%; }
+  to   { width: 0%;   }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 480px) {
+  .duplicate-toast {
+    bottom: 16px;
+    right: 16px;
+    left: 16px;
+    width: auto;
+    max-width: 100%;
   }
 }
 
