@@ -15,6 +15,9 @@ import EmployeeDetails from './pages/EmployeeDetails';
 import Expenses from './pages/Expenses';
 import Alerts from './pages/Alerts';
 import CalendarPage from './pages/CalendarPage';
+import Sinistres from './pages/Sinistres';
+import SinistreForm from './pages/SinistreForm';
+import SinistreDetails from './pages/SinistreDetails';
 import './App.css';
 import './pages/Renewal.css';
 
@@ -104,6 +107,10 @@ function App() {
               <Route path="/clients" element={<AppLayout><Clients /></AppLayout>} />
               <Route path="/alerts" element={<AppLayout><Alerts /></AppLayout>} />
               <Route path="/calendar" element={<AppLayout><CalendarPage /></AppLayout>} />
+              <Route path="/sinistres" element={<AppLayout><Sinistres /></AppLayout>} />
+              <Route path="/sinistres/nouveau" element={<AppLayout><SinistreForm /></AppLayout>} />
+              <Route path="/sinistres/modifier/:id" element={<AppLayout><SinistreForm /></AppLayout>} />
+              <Route path="/sinistres/:id" element={<AppLayout><SinistreDetails /></AppLayout>} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>

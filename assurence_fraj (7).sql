@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Hôte : 127.0.0.1:3306
--- Généré le : jeu. 04 juin 2026 à 16:19
+-- Généré le : dim. 07 juin 2026 à 13:50
 -- Version du serveur : 9.1.0
 -- Version de PHP : 8.3.14
 
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS `activity_logs` (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=445 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=455 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS `categories` (
   `name` varchar(100) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS `clients` (
   `is_deleted` tinyint(1) DEFAULT '0',
   PRIMARY KEY (`id`),
   KEY `fk_created_by` (`created_by`)
-) ENGINE=MyISAM AUTO_INCREMENT=50 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=51 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -165,7 +165,7 @@ CREATE TABLE IF NOT EXISTS `client_history` (
   `nouvelle_valeur` text,
   `date_modification` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM AUTO_INCREMENT=51 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=59 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -223,7 +223,7 @@ CREATE TABLE IF NOT EXISTS `client_versements` (
   PRIMARY KEY (`id`),
   KEY `client_id` (`client_id`),
   KEY `fk_versement_user` (`user_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=64 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=68 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -284,7 +284,32 @@ CREATE TABLE IF NOT EXISTS `sessions` (
   `duration_minutes` int DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=68 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=69 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Structure de la table `sinistres`
+--
+
+DROP TABLE IF EXISTS `sinistres`;
+CREATE TABLE IF NOT EXISTS `sinistres` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `numero_police` varchar(100) DEFAULT NULL,
+  `nom_client` varchar(255) DEFAULT NULL,
+  `immatriculation` varchar(100) DEFAULT NULL,
+  `date_accident` date DEFAULT NULL,
+  `numero_sinistre` varchar(100) DEFAULT NULL,
+  `nom_expert` varchar(255) DEFAULT NULL,
+  `nature_sinistre` varchar(255) DEFAULT NULL,
+  `montant_rapport_expertise` decimal(15,2) DEFAULT NULL,
+  `observation` text,
+  `rapport_cheque` varchar(255) DEFAULT NULL,
+  `date_cheque` date DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=MyISAM AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -313,7 +338,7 @@ CREATE TABLE IF NOT EXISTS `users` (
 --
 
 INSERT INTO `users` (`id`, `name`, `email`, `password`, `role`, `created_at`, `can_add`, `can_edit`, `can_delete`, `last_active`) VALUES
-(7, 'Admin User', 'admin@assurance.com', '$2b$10$lkKR2.Vd1sS56zY35EcDcuf624WQ4pcKm9HnrfspvONf7Uf6wK9X6', 'ADMIN', '2026-06-03 21:25:12', 1, 1, 1, '2026-06-04 14:49:12'),
+(7, 'Admin User', 'admin@assurance.com', '$2b$10$lkKR2.Vd1sS56zY35EcDcuf624WQ4pcKm9HnrfspvONf7Uf6wK9X6', 'ADMIN', '2026-06-03 21:25:12', 1, 1, 1, '2026-06-07 13:48:01'),
 (8, 'ahmed', 'ahmed@gmail.com', '$2a$12$PFsSkUGtHKf.SvU..NAVp.MsTB2kcXp3Lr.fp/puHGUWhm5A6GKZO', 'EMPLOYEE', '2026-06-03 21:26:13', 1, 1, 1, '2026-06-04 16:17:33');
 COMMIT;
 

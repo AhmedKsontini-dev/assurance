@@ -136,6 +136,28 @@ const initDB = async () => {
     await connection.query(createEventsTable);
     console.log('✅ Table "events" ensured');
 
+    // Create sinistres table
+    const createSinistresTable = `
+    CREATE TABLE IF NOT EXISTS sinistres (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      numero_police VARCHAR(100),
+      nom_client VARCHAR(255),
+      immatriculation VARCHAR(100),
+      date_accident DATE,
+      numero_sinistre VARCHAR(100),
+      nom_expert VARCHAR(255),
+      nature_sinistre VARCHAR(255),
+      montant_rapport_expertise DECIMAL(15, 2),
+      observation TEXT,
+      rapport_cheque VARCHAR(255),
+      date_cheque DATE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    );
+    `;
+    await connection.query(createSinistresTable);
+    console.log('✅ Table "sinistres" ensured');
+
     // Create default admin if not exists
     const [adminExists] = await connection.query('SELECT * FROM users WHERE role = "ADMIN"');
     if (adminExists.length === 0) {

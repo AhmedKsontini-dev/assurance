@@ -34,6 +34,12 @@ const Sidebar = ({ isCollapsed, isMobileOpen, toggleSidebar }) => {
             </Link>
           </li>
           <li>
+            <Link to="/sinistres" className={isActive('/sinistres')} title={isCollapsed ? "Gestion des Sinistres" : ""}>
+              <span className="nav-icon">🚗</span>
+              <span className="nav-text">Gestion des Sinistres</span>
+            </Link>
+          </li>
+          <li>
             <Link to="/alerts" className={isActive('/alerts')} title={isCollapsed ? "Alertes & Notifications" : ""}>
               <span className="nav-icon">🔔</span>
               <span className="nav-text">Alertes & Notifications</span>

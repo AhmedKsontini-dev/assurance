@@ -9,9 +9,11 @@ const alertRoutes = require('./routes/alertRoutes');
 const caisseRoutes = require('./routes/caisseRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
+const sinistreRoutes = require('./routes/sinistreRoutes');
 const errorHandler = require('./middlewares/errorHandler');
 const Caisse = require('./models/caisseModel');
 const ClientHistory = require('./models/clientHistoryModel');
+const path = require('path');
 
 const app = express();
 
@@ -31,6 +33,9 @@ app.use(express.json());
 Caisse.initTables().catch(err => console.error('❌ Caisse tables init failed:', err.message));
 ClientHistory.initTable().catch(err => console.error('❌ ClientHistory table init failed:', err.message));
 
+// Serve static files from uploads folder
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -41,6 +46,7 @@ app.use('/api/alerts', alertRoutes);
 app.use('/api/caisse', caisseRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/sinistres', sinistreRoutes);
 
 // 404 Route
 app.use((req, res, next) => {
