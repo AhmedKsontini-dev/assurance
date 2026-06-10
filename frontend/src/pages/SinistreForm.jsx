@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAlert } from '../context/AlertContext';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { useSinistreAlert } from '../context/SinistreAlertContext';
+import api from '../services/api';
 
 const SinistreForm = () => {
   const [formData, setFormData] = useState({
@@ -23,19 +23,15 @@ const SinistreForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showAlert } = useAlert();
+  const { refreshAlerts } = useSinistreAlert();
   const isEditMode = !!id;
 
   useEffect(() => {
     if (isEditMode) {
       const fetchSinistre = async () => {
         try {
-          const response = await fetch(`${API_URL}/sinistres/${id}`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          });
-          if (!response.ok) throw new Error('Erreur lors de la récupération des données');
-          const data = await response.json();
+          const response = await api.get(`/sinistres/${id}`);
+          const data = response.data.data;
           setFormData({
             numero_police: data.numero_police || '',
             nom_client: data.nom_client || '',
@@ -49,7 +45,7 @@ const SinistreForm = () => {
             date_cheque: data.date_cheque ? data.date_cheque.split('T')[0] : ''
           });
         } catch (err) {
-          showAlert(err.message, 'error');
+          showAlert.error(err.message || 'Erreur lors de la récupération des données');
           navigate('/sinistres');
         }
       };
@@ -79,22 +75,23 @@ const SinistreForm = () => {
     }
 
     try {
-      const url = isEditMode ? `${API_URL}/sinistres/${id}` : `${API_URL}/sinistres`;
-      const method = isEditMode ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-          // No Content-Type header when sending FormData, the browser sets it automatically
-        },
-        body: formDataToSend
-      });
-
-      if (!response.ok) throw new Error('Erreur lors de l\'enregistrement');
+      if (isEditMode) {
+        await api.put(`/sinistres/${id}`, formDataToSend, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+      } else {
+        await api.post('/sinistres', formDataToSend, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+      }
+      refreshAlerts();
       navigate('/sinistres', { state: { successMessage: `Le sinistre a été ${isEditMode ? 'modifié' : 'ajouté'} avec succès.` } });
     } catch (err) {
-      showAlert(err.message, 'error');
+      showAlert.error(err.message || 'Erreur lors de l\'enregistrement');
     } finally {
       setLoading(false);
     }

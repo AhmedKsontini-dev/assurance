@@ -1564,20 +1564,30 @@ const Clients = () => {
                   </div>
                 </td>
                 <td>
-                  <button 
-                    onClick={() => togglePaymentStatus(client)}
-                    className={`payment-toggle-btn ${statusClass}`}
-                    title={`Statut actuel: ${paymentStatusStr}. Cliquer pour changer.`}
+                  <span 
+                    className="payment-status-badge"
+                    style={{
+                      backgroundColor: client.payment_status === 'Paid' ? '#10b981' : 
+                                     client.payment_status === 'Partial' ? '#f59e0b' : '#ef4444',
+                      color: 'white',
+                      padding: '6px 12px',
+                      borderRadius: '20px',
+                      fontSize: '13px',
+                      fontWeight: '500',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
                   >
                     {client.payment_status === 'Paid' ? (
-                      <CheckCircle size={20} />
+                      <CheckCircle size={16} />
                     ) : client.payment_status === 'Partial' ? (
-                      <AlertCircle size={20} />
+                      <AlertCircle size={16} />
                     ) : (
-                      <XCircle size={20} />
+                      <XCircle size={16} />
                     )}
-                    <span>{paymentStatusStr}</span>
-                  </button>
+                    {paymentStatusStr}
+                  </span>
                 </td>
                 <td className="amount">{totalAmount.toFixed(2)} DT</td>
                 

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAlert } from '../context/AlertContext';
+import api from '../services/api';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-const UPLOADS_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
+const UPLOADS_URL = 'http://100.113.217.68:5000';
 
 const SinistreDetails = () => {
   const [sinistre, setSinistre] = useState(null);
@@ -15,16 +15,10 @@ const SinistreDetails = () => {
   useEffect(() => {
     const fetchSinistre = async () => {
       try {
-        const response = await fetch(`${API_URL}/sinistres/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        if (!response.ok) throw new Error('Erreur lors du chargement des détails');
-        const data = await response.json();
-        setSinistre(data);
+        const response = await api.get(`/sinistres/${id}`);
+        setSinistre(response.data.data);
       } catch (err) {
-        showAlert(err.message, 'error');
+        showAlert.error(err.message || 'Erreur lors du chargement des détails');
         navigate('/sinistres');
       } finally {
         setLoading(false);

@@ -70,7 +70,7 @@ exports.getEmployeeDetails = async (req, res, next) => {
 exports.getEmployeeAnalytics = async (req, res, next) => {
   try {
     const userId = req.params.id;
-    const { statsDate } = req.query;
+    const { statsDate, filterType } = req.query; // filterType: 'ajouts' or 'modifications'
 
     // 1. Employee Info
     const [userRows] = await db.query(
@@ -173,25 +173,84 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
       };
     }
 
-    // 3. Clients List (Filtered by statsDate if provided)
-    // Show only own clients for all roles (including ADMIN)
+    // 3. Clients List (Filtered by statsDate and filterType if provided)
     const userRole = userRows[0].role;
-    let clientQuery = 'SELECT * FROM clients WHERE created_by = ? AND is_deleted = 0';
-    let clientParams = [userId];
-    
-    if (statsDate) {
-      clientQuery += ' AND DATE(created_at) = ?';
-      clientParams.push(statsDate);
+    let clients = [];
+    let modifications = [];
+
+    if (filterType === 'modifications') {
+      // Get clients modified by the employee (payments or other modifications)
+      const modQuery = `
+        SELECT DISTINCT 
+          c.*,
+          ch.action_effectuee,
+          ch.ancienne_valeur,
+          ch.nouvelle_valeur,
+          ch.date_modification,
+          ch.utilisateur_id,
+          ch.nom_utilisateur,
+          'history' as source_type
+        FROM clients c
+        INNER JOIN client_history ch ON c.id = ch.client_id
+        WHERE ch.utilisateur_id = ? AND c.is_deleted = 0
+        ${statsDate ? 'AND DATE(ch.date_modification) = ?' : ''}
+        
+        UNION ALL
+        
+        SELECT DISTINCT 
+          c.*,
+          'Paiement enregistré' as action_effectuee,
+          v.montant as ancienne_valeur,
+          v.montant as nouvelle_valeur,
+          v.date_versement as date_modification,
+          v.user_id as utilisateur_id,
+          u.name as nom_utilisateur,
+          'versement' as source_type
+        FROM clients c
+        INNER JOIN client_versements v ON c.id = v.client_id
+        INNER JOIN users u ON v.user_id = u.id
+        WHERE v.user_id = ? AND v.annule = 0 AND c.is_deleted = 0
+        ${statsDate ? 'AND DATE(v.date_versement) = ?' : ''}
+        
+        ORDER BY date_modification DESC
+      `;
+      
+      const modParams = statsDate ? [userId, statsDate, userId, statsDate] : [userId, userId];
+      const [modRows] = await db.query(modQuery, modParams);
+      
+      // Group modifications by client and get the most recent action
+      modifications = modRows;
+      
+      // Get unique clients from modifications
+      const uniqueClientIds = [...new Set(modifications.map(m => m.id))];
+      if (uniqueClientIds.length > 0) {
+        const [clientRows] = await db.query(
+          `SELECT * FROM clients WHERE id IN (${uniqueClientIds.map(() => '?').join(',')}) AND is_deleted = 0`,
+          uniqueClientIds
+        );
+        clients = clientRows;
+      }
+    } else {
+      // Default: show clients created by the employee (Ajouts)
+      let clientQuery = 'SELECT * FROM clients WHERE created_by = ? AND is_deleted = 0';
+      let clientParams = [userId];
+      
+      if (statsDate) {
+        clientQuery += ' AND DATE(created_at) = ?';
+        clientParams.push(statsDate);
+      }
+      clientQuery += ' ORDER BY created_at DESC';
+      const [clientRows] = await db.query(clientQuery, clientParams);
+      clients = clientRows;
     }
-    clientQuery += ' ORDER BY created_at DESC';
-    const [clients] = await db.query(clientQuery, clientParams);
 
     // Fetch all clients for global alerts (like payment reminders)
     const [allClients] = await db.query('SELECT * FROM clients WHERE is_deleted = 0 ORDER BY created_at DESC');
 
     console.log('[DEBUG] User role:', userRole, 'User ID:', userId);
-    console.log('[DEBUG] Client query:', clientQuery);
-    console.log('[DEBUG] Number of own clients returned:', clients.length);
+    console.log('[DEBUG] Filter type:', filterType);
+    console.log('[DEBUG] Number of clients returned:', clients.length);
+    console.log('[DEBUG] Number of modifications returned:', modifications.length);
 
     // 4. Activity Logs (Filtered by statsDate if provided)
     let logQuery = 'SELECT * FROM activity_logs WHERE user_id = ?';
@@ -229,6 +288,7 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
           custom: customDateStats
         },
         clients,
+        modifications,
         all_clients: allClients,
         logs
       }

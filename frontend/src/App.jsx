@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { AlertProvider } from './context/AlertContext';
+import { SinistreAlertProvider } from './context/SinistreAlertContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AlertContainer from './components/AlertContainer';
 import Navbar from './components/Navbar';
@@ -97,33 +98,35 @@ function App() {
   return (
     <AlertProvider>
       <AuthProvider>
-        <Router>
-          <AlertContainer />
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            
-            <Route element={<ProtectedRoute />}>
-              <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
-              <Route path="/clients" element={<AppLayout><Clients /></AppLayout>} />
-              <Route path="/alerts" element={<AppLayout><Alerts /></AppLayout>} />
-              <Route path="/calendar" element={<AppLayout><CalendarPage /></AppLayout>} />
-              <Route path="/sinistres" element={<AppLayout><Sinistres /></AppLayout>} />
-              <Route path="/sinistres/nouveau" element={<AppLayout><SinistreForm /></AppLayout>} />
-              <Route path="/sinistres/modifier/:id" element={<AppLayout><SinistreForm /></AppLayout>} />
-              <Route path="/sinistres/:id" element={<AppLayout><SinistreDetails /></AppLayout>} />
-            </Route>
+        <SinistreAlertProvider>
+          <Router>
+            <AlertContainer />
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              
+              <Route element={<ProtectedRoute />}>
+                <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
+                <Route path="/clients" element={<AppLayout><Clients /></AppLayout>} />
+                <Route path="/alerts" element={<AppLayout><Alerts /></AppLayout>} />
+                <Route path="/calendar" element={<AppLayout><CalendarPage /></AppLayout>} />
+                <Route path="/sinistres" element={<AppLayout><Sinistres /></AppLayout>} />
+                <Route path="/sinistres/nouveau" element={<AppLayout><SinistreForm /></AppLayout>} />
+                <Route path="/sinistres/modifier/:id" element={<AppLayout><SinistreForm /></AppLayout>} />
+                <Route path="/sinistres/:id" element={<AppLayout><SinistreDetails /></AppLayout>} />
+              </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
-              <Route path="/users" element={<AppLayout><Users /></AppLayout>} />
-              <Route path="/reports" element={<AppLayout><Reports /></AppLayout>} />
-              <Route path="/reports/employee/:id" element={<AppLayout><EmployeeDetails /></AppLayout>} />
-              <Route path="/expenses" element={<AppLayout><Expenses /></AppLayout>} />
-            </Route>
+              <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
+                <Route path="/users" element={<AppLayout><Users /></AppLayout>} />
+                <Route path="/reports" element={<AppLayout><Reports /></AppLayout>} />
+                <Route path="/reports/employee/:id" element={<AppLayout><EmployeeDetails /></AppLayout>} />
+                <Route path="/expenses" element={<AppLayout><Expenses /></AppLayout>} />
+              </Route>
 
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </Router>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </Router>
+        </SinistreAlertProvider>
       </AuthProvider>
     </AlertProvider>
   );

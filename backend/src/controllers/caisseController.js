@@ -8,7 +8,20 @@ const { logActivity } = require('../utils/logger');
 exports.getDailySummary = async (req, res, next) => {
   try {
     const date = req.query.date || new Date().toISOString().split('T')[0];
-    const summary = await Caisse.getDailySummary(req.user.id, date);
+    const targetUserId = req.query.userId;
+
+    // If userId is provided, check if current user is admin
+    if (targetUserId) {
+      if (req.user.role !== 'ADMIN') {
+        return res.status(403).json({
+          status: 'fail',
+          message: 'Seuls les administrateurs peuvent consulter le journal de caisse d\'autres employés.'
+        });
+      }
+    }
+
+    const userId = targetUserId || req.user.id;
+    const summary = await Caisse.getDailySummary(userId, date);
 
     res.status(200).json({
       status: 'success',
@@ -25,8 +38,20 @@ exports.getDailySummary = async (req, res, next) => {
  */
 exports.getEntries = async (req, res, next) => {
   try {
-    const { limit, date } = req.query;
-    const entries = await Caisse.getEntries(req.user.id, parseInt(limit) || 50, date);
+    const { limit, date, userId: targetUserId } = req.query;
+
+    // If userId is provided, check if current user is admin
+    if (targetUserId) {
+      if (req.user.role !== 'ADMIN') {
+        return res.status(403).json({
+          status: 'fail',
+          message: 'Seuls les administrateurs peuvent consulter le journal de caisse d\'autres employés.'
+        });
+      }
+    }
+
+    const userId = targetUserId || req.user.id;
+    const entries = await Caisse.getEntries(userId, parseInt(limit) || 50, date);
 
     res.status(200).json({
       status: 'success',

@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { BookOpen, Plus, Trash2, Calendar, TrendingUp, TrendingDown, ArrowUpCircle, ArrowDownCircle, Search, X, AlertCircle } from 'lucide-react';
 
-const CaisseSection = ({ onEntryChange, statsDate }) => {
+const CaisseSection = ({ onEntryChange, statsDate, userId, employeeName }) => {
   const { user } = useAuth();
   const [entries, setEntries] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -11,6 +11,9 @@ const CaisseSection = ({ onEntryChange, statsDate }) => {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
+
+  // Use provided userId or fall back to current user's id
+  const targetUserId = userId || user?.id;
 
   // New entry form
   const [showForm, setShowForm] = useState(false);
@@ -25,9 +28,13 @@ const CaisseSection = ({ onEntryChange, statsDate }) => {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+      const params = { limit: 50, date: statsDate };
+      if (targetUserId && targetUserId !== user?.id) {
+        params.userId = targetUserId;
+      }
       const [summaryRes, entriesRes] = await Promise.all([
-        api.get('/caisse/summary'),
-        api.get('/caisse/entries', { params: { limit: 50, date: statsDate } })
+        api.get('/caisse/summary', { params }),
+        api.get('/caisse/entries', { params })
       ]);
       setSummary(summaryRes.data.data.summary);
       setEntries(entriesRes.data.data.entries);
@@ -38,11 +45,11 @@ const CaisseSection = ({ onEntryChange, statsDate }) => {
     } finally {
       setLoading(false);
     }
-  }, [statsDate]);
+  }, [statsDate, targetUserId, user?.id]);
 
   useEffect(() => {
-    if (user?.id) fetchData();
-  }, [user, fetchData]);
+    if (targetUserId) fetchData();
+  }, [targetUserId, fetchData]);
 
   const handleAddEntry = async (e) => {
     e.preventDefault();
@@ -59,7 +66,11 @@ const CaisseSection = ({ onEntryChange, statsDate }) => {
 
       setSummary(res.data.data.summary);
       // Refetch entries to show the new one
-      const entriesRes = await api.get('/caisse/entries', { params: { limit: 50, date: statsDate } });
+      const params = { limit: 50, date: statsDate };
+      if (targetUserId && targetUserId !== user?.id) {
+        params.userId = targetUserId;
+      }
+      const entriesRes = await api.get('/caisse/entries', { params });
       setEntries(entriesRes.data.data.entries);
 
       setNewEntry({
@@ -116,17 +127,19 @@ const CaisseSection = ({ onEntryChange, statsDate }) => {
             <BookOpen size={22} />
           </div>
           <div>
-            <h2>Mon Journal de Caisse</h2>
+            <h2>{employeeName ? `Journal de Caisse : ${employeeName}` : 'Mon Journal de Caisse'}</h2>
             <p className="caisse-subtitle">Suivi manuel des entrées et sorties d'argent</p>
           </div>
         </div>
-        <button
-          className={`caisse-tab-btn ${showForm ? 'active' : ''}`}
-          onClick={() => setShowForm(!showForm)}
-          style={{ background: showForm ? '#fff' : 'transparent', color: showForm ? '#4472b3' : '#fff' }}
-        >
-          {showForm ? <><X size={16} /> Annuler</> : <><Plus size={16} /> Nouvelle Entrée</>}
-        </button>
+        {!userId && (
+          <button
+            className={`caisse-tab-btn ${showForm ? 'active' : ''}`}
+            onClick={() => setShowForm(!showForm)}
+            style={{ background: showForm ? '#fff' : 'transparent', color: showForm ? '#4472b3' : '#fff' }}
+          >
+            {showForm ? <><X size={16} /> Annuler</> : <><Plus size={16} /> Nouvelle Entrée</>}
+          </button>
+        )}
       </div>
 
       {error && (
@@ -287,13 +300,15 @@ const CaisseSection = ({ onEntryChange, statsDate }) => {
                 <span className="caisse-op-amount" style={{ color: entry.type === 'INCOME' ? '#27ae60' : '#e74c3c', fontSize: '1.1rem' }}>
                   {entry.type === 'INCOME' ? '+' : '-'}{parseFloat(entry.montant).toLocaleString('fr-FR', { minimumFractionDigits: 3 })} TND
                 </span>
-                <button
-                  className="caisse-delete-btn"
-                  onClick={() => handleDelete(entry.id)}
-                  title="Supprimer"
-                >
-                  <Trash2 size={14} />
-                </button>
+                {!userId && (
+                  <button
+                    className="caisse-delete-btn"
+                    onClick={() => handleDelete(entry.id)}
+                    title="Supprimer"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </div>
             ))}
           </div>

@@ -5,7 +5,7 @@ const fs = require('fs');
 exports.getAllSinistres = async (req, res) => {
   try {
     const sinistres = await Sinistre.findAll();
-    res.json(sinistres);
+    res.json({ data: sinistres });
   } catch (err) {
     res.status(500).json({ message: 'Error retrieving sinistres', error: err.message });
   }
@@ -17,7 +17,7 @@ exports.getSinistreById = async (req, res) => {
     if (!sinistre) {
       return res.status(404).json({ message: 'Sinistre non trouvé' });
     }
-    res.json(sinistre);
+    res.json({ data: sinistre });
   } catch (err) {
     res.status(500).json({ message: 'Error retrieving sinistre', error: err.message });
   }

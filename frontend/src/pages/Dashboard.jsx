@@ -16,6 +16,7 @@ const Dashboard = () => {
   const [upcomingExpenses, setUpcomingExpenses] = useState([]);
   const [viewingClient, setViewingClient] = useState(null);
   const [viewingClientVersements, setViewingClientVersements] = useState([]);
+  const [filterType, setFilterType] = useState('ajouts'); // 'ajouts' or 'modifications'
 
   // État pour le modal des notes clients
   const [viewingNotesClient, setViewingNotesClient] = useState(null);
@@ -69,7 +70,7 @@ const Dashboard = () => {
   const fetchAnalytics = async () => {
     try {
       const response = await api.get(`/reports/employee/${user.id}/details`, {
-        params: { statsDate }
+        params: { statsDate, filterType }
       });
       setData(response.data.data);
       setLoading(false);
@@ -118,7 +119,7 @@ const Dashboard = () => {
       fetchUpcomingEvents();
       fetchUpcomingExpenses();
     }
-  }, [user, statsDate]);
+  }, [user, statsDate, filterType]);
 
   if (loading) return <div className="loading">Chargement de votre tableau de bord...</div>;
   if (!data) return <div className="error-msg">Aucune donnée trouvée pour votre compte.</div>;
@@ -478,67 +479,188 @@ const Dashboard = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          
+          {/* Filter Buttons */}
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+            <button
+              onClick={() => setFilterType('ajouts')}
+              style={{
+                padding: '10px 20px',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                background: filterType === 'ajouts' ? 'var(--primary-color)' : '#f1f5f9',
+                color: filterType === 'ajouts' ? 'white' : '#64748b'
+              }}
+              onMouseOver={(e) => {
+                if (filterType !== 'ajouts') {
+                  e.currentTarget.style.background = '#e2e8f0';
+                }
+              }}
+              onMouseOut={(e) => {
+                if (filterType !== 'ajouts') {
+                  e.currentTarget.style.background = '#f1f5f9';
+                }
+              }}
+            >
+              ➕ Ajouts
+            </button>
+            <button
+              onClick={() => setFilterType('modifications')}
+              style={{
+                padding: '10px 20px',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                background: filterType === 'modifications' ? 'var(--primary-color)' : '#f1f5f9',
+                color: filterType === 'modifications' ? 'white' : '#64748b'
+              }}
+              onMouseOver={(e) => {
+                if (filterType !== 'modifications') {
+                  e.currentTarget.style.background = '#e2e8f0';
+                }
+              }}
+              onMouseOut={(e) => {
+                if (filterType !== 'modifications') {
+                  e.currentTarget.style.background = '#f1f5f9';
+                }
+              }}
+            >
+              📝 Modifications
+            </button>
+          </div>
+
           <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>N°</th>
-                  <th>Police</th>
-                  <th>Societaire</th>
-                  <th>Date Effet</th>
-                  <th>Total</th>
-                  <th style={{ textAlign: 'center' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentClients.map((client, index) => (
-                  <tr 
-                    key={client.id}
-                    onClick={() => handleViewClient(client)}
-                    style={{ cursor: 'pointer' }}
-                    title="Cliquer pour voir les détails"
-                  >
-                    <td style={{ fontWeight: 'bold', color: '#64748b' }}>{indexOfFirstClient + index + 1}</td>
-                    <td>{client.police}</td>
-                    <td>{client.societaire}</td>
-                    <td>{new Date(client.date_effet).toLocaleDateString()}</td>
-                    <td className="amount">{parseFloat(client.total).toLocaleString()} TND</td>
-                    <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                      <button 
-                        onClick={(e) => handleOpenNotes(client, e)}
-                        style={{
-                          background: '#e0f2fe',
-                          color: '#0284c7',
-                          border: 'none',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '5px',
-                          fontWeight: '600',
-                          fontSize: '0.85rem',
-                          margin: '0 auto',
-                          transition: 'background 0.2s'
-                        }}
-                        onMouseOver={(e) => e.currentTarget.style.background = '#bae6fd'}
-                        onMouseOut={(e) => e.currentTarget.style.background = '#e0f2fe'}
-                        title="Discussion et Notes"
-                      >
-                        <MessageSquare size={16} /> Notes
-                      </button>
-                    </td>
+            {filterType === 'ajouts' ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>N°</th>
+                    <th>Police</th>
+                    <th>Societaire</th>
+                    <th>Date Effet</th>
+                    <th>Total</th>
+                    <th style={{ textAlign: 'center' }}>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {currentClients.map((client, index) => (
+                    <tr 
+                      key={client.id}
+                      onClick={() => handleViewClient(client)}
+                      style={{ cursor: 'pointer' }}
+                      title="Cliquer pour voir les détails"
+                    >
+                      <td style={{ fontWeight: 'bold', color: '#64748b' }}>{indexOfFirstClient + index + 1}</td>
+                      <td>{client.police}</td>
+                      <td>{client.societaire}</td>
+                      <td>{new Date(client.date_effet).toLocaleDateString()}</td>
+                      <td className="amount">{parseFloat(client.total).toLocaleString()} TND</td>
+                      <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                        <button 
+                          onClick={(e) => handleOpenNotes(client, e)}
+                          style={{
+                            background: '#e0f2fe',
+                            color: '#0284c7',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '5px',
+                            fontWeight: '600',
+                            fontSize: '0.85rem',
+                            margin: '0 auto',
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseOver={(e) => e.currentTarget.style.background = '#bae6fd'}
+                          onMouseOut={(e) => e.currentTarget.style.background = '#e0f2fe'}
+                          title="Discussion et Notes"
+                        >
+                          <MessageSquare size={16} /> Notes
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nom du sociétaire</th>
+                    <th>Type d'action</th>
+                    <th>Montant encaissé</th>
+                    <th>Date de l'action</th>
+                    <th>Détails</th>
+                    <th>Statut actuel</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.modifications && data.modifications.length > 0 ? (
+                    data.modifications.map((mod, index) => (
+                      <tr 
+                        key={`${mod.id}-${index}`}
+                        onClick={() => handleViewClient(mod)}
+                        style={{ cursor: 'pointer' }}
+                        title="Cliquer pour voir les détails"
+                      >
+                        <td style={{ fontWeight: 'bold' }}>{mod.societaire}</td>
+                        <td>
+                          <span style={{
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.85rem',
+                            fontWeight: '600',
+                            background: mod.source_type === 'versement' ? '#dcfce7' : '#fef3c7',
+                            color: mod.source_type === 'versement' ? '#166534' : '#92400e'
+                          }}>
+                            {mod.action_effectuee}
+                          </span>
+                        </td>
+                        <td style={{ color: '#2ecc71', fontWeight: 'bold' }}>
+                          {mod.source_type === 'versement' ? `${parseFloat(mod.ancienne_valeur || 0).toFixed(2)} DT` : '-'}
+                        </td>
+                        <td>{new Date(mod.date_modification).toLocaleDateString('fr-FR')}</td>
+                        <td style={{ fontSize: '0.9rem', color: '#64748b' }}>
+                          {mod.source_type === 'versement' 
+                            ? `Paiement de ${parseFloat(mod.ancienne_valeur || 0).toFixed(2)} DT`
+                            : `${mod.ancienne_valeur || '-'} → ${mod.nouvelle_valeur || '-'}`
+                          }
+                        </td>
+                        <td>
+                          <span className={`detail-badge ${
+                            mod.payment_status === 'Paid' ? 'success' : mod.payment_status === 'Partial' ? 'warning' : 'danger'
+                          }`}>
+                            {mod.payment_status === 'Paid' ? 'Payé' : mod.payment_status === 'Partial' ? 'Partiel' : 'Impayé'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" style={{ textAlign: 'center', padding: '30px', color: '#64748b' }}>
+                        Aucune modification enregistrée par cet employé.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
-          <div className="pagination">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1}>Prev</button>
-            <span>Page {currentPage} sur {totalPages || 1}</span>
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages || totalPages === 0}>Next</button>
-          </div>
+          {filterType === 'ajouts' && (
+            <div className="pagination">
+              <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1}>Prev</button>
+              <span>Page {currentPage} sur {totalPages || 1}</span>
+              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages || totalPages === 0}>Next</button>
+            </div>
+          )}
         </section>
 
         <div className="side-analytics">
