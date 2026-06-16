@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAlert } from '../context/AlertContext';
-import { useSinistreAlert } from '../context/SinistreAlertContext';
 import api from '../services/api';
 
 const SinistreForm = () => {
@@ -23,7 +22,6 @@ const SinistreForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showAlert } = useAlert();
-  const { refreshAlerts } = useSinistreAlert();
   const isEditMode = !!id;
 
   useEffect(() => {
@@ -88,7 +86,6 @@ const SinistreForm = () => {
           }
         });
       }
-      refreshAlerts();
       navigate('/sinistres', { state: { successMessage: `Le sinistre a été ${isEditMode ? 'modifié' : 'ajouté'} avec succès.` } });
     } catch (err) {
       showAlert.error(err.message || 'Erreur lors de l\'enregistrement');

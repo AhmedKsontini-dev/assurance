@@ -3,7 +3,6 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, Edit, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAlert } from '../context/AlertContext';
-import { useSinistreAlert } from '../context/SinistreAlertContext';
 import api from '../services/api';
 
 const Sinistres = () => {
@@ -14,7 +13,6 @@ const Sinistres = () => {
 
   const { user, isAdmin } = useAuth();
   const { showAlert } = useAlert();
-  const { alertSinistres, refreshAlerts } = useSinistreAlert();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -88,7 +86,6 @@ const Sinistres = () => {
     try {
       const response = await api.get('/sinistres');
       setSinistres(response.data.data);
-      refreshAlerts();
     } catch (err) {
       showAlert.error('Erreur lors du chargement des sinistres');
     } finally {
@@ -156,7 +153,6 @@ const Sinistres = () => {
       await api.delete(`/sinistres/${sinistreToDelete}`);
       setSuccessMessage('Sinistre supprimé avec succès');
       setSinistres(sinistres.filter(s => s.id !== sinistreToDelete));
-      refreshAlerts();
     } catch (err) {
       showAlert.error(err.message || 'Erreur lors de la suppression');
     } finally {
@@ -172,148 +168,6 @@ const Sinistres = () => {
       <div className="page-header">
         <h1>Gestion des Sinistres</h1>
       </div>
-
-      {/* Alert Banner */}
-      {alertSinistres.length > 0 && (
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            marginBottom: '16px'
-          }}>
-            <span style={{ fontSize: '20px', color: '#ef4444' }}>🔔</span>
-            <h2 style={{ 
-              margin: 0, 
-              fontSize: '18px', 
-              fontWeight: '600', 
-              color: '#1e293b' 
-            }}>
-              Sinistres arrivant à échéance
-            </h2>
-            <span style={{
-              backgroundColor: '#ef4444',
-              color: 'white',
-              padding: '2px 10px',
-              borderRadius: '12px',
-              fontSize: '12px',
-              fontWeight: 'bold'
-            }}>
-              {alertSinistres.length}
-            </span>
-          </div>
-          
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
-            gap: '16px' 
-          }}>
-            {alertSinistres.map(sinistre => {
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              const chequeDate = new Date(sinistre.date_cheque);
-              chequeDate.setHours(0, 0, 0, 0);
-              const diffDays = Math.ceil((chequeDate - today) / (1000 * 60 * 60 * 24));
-              
-              return (
-                <div key={sinistre.id} style={{
-                  backgroundColor: 'white',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '12px',
-                  padding: '16px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                  transition: 'box-shadow 0.2s'
-                }}>
-                  <div style={{ marginBottom: '12px' }}>
-                    <div style={{ 
-                      fontSize: '16px', 
-                      fontWeight: '600', 
-                      color: '#1e293b',
-                      marginBottom: '4px'
-                    }}>
-                      {sinistre.nom_client}
-                    </div>
-                    <div style={{ 
-                      fontSize: '13px', 
-                      color: '#64748b',
-                      marginBottom: '8px'
-                    }}>
-                      Police: {sinistre.numero_police}
-                    </div>
-                    <div style={{ 
-                      fontSize: '13px', 
-                      color: '#64748b',
-                      marginBottom: '8px'
-                    }}>
-                      N° Sinistre: {sinistre.numero_sinistre}
-                    </div>
-                  </div>
-                  
-                  <div style={{ 
-                    marginBottom: '12px',
-                    padding: '8px 12px',
-                    backgroundColor: '#fef2f2',
-                    borderRadius: '6px',
-                    border: '1px solid #fee2e2'
-                  }}>
-                    <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '2px' }}>
-                      Date du chèque
-                    </div>
-                    <div style={{ 
-                      fontSize: '15px', 
-                      fontWeight: '700', 
-                      color: '#dc2626' 
-                    }}>
-                      {new Date(sinistre.date_cheque).toLocaleDateString('fr-FR')}
-                    </div>
-                  </div>
-                  
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center',
-                    marginBottom: '12px'
-                  }}>
-                    <div style={{ fontSize: '13px', color: '#64748b' }}>
-                      Échéance
-                    </div>
-                    <span style={{
-                      backgroundColor: diffDays <= 3 ? '#fef3c7' : '#fef9c3',
-                      color: diffDays <= 3 ? '#92400e' : '#854d0e',
-                      padding: '4px 10px',
-                      borderRadius: '12px',
-                      fontSize: '12px',
-                      fontWeight: '600'
-                    }}>
-                      {diffDays === 0 ? "Aujourd'hui" : diffDays === 1 ? 'Demain' : `Dans ${diffDays} jours`}
-                    </span>
-                  </div>
-                  
-                  <button
-                    onClick={() => navigate(`/sinistres/${sinistre.id}`)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 16px',
-                      backgroundColor: '#3b82f6',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      fontSize: '13px',
-                      fontWeight: '500',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.2s'
-                    }}
-                    onMouseOver={(e) => e.target.style.backgroundColor = '#2563eb'}
-                    onMouseOut={(e) => e.target.style.backgroundColor = '#3b82f6'}
-                  >
-                    Voir Sinistre
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Collapsible Filter Section */}
       <div className="filter-section">

@@ -1,10 +1,8 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useSinistreAlert } from '../context/SinistreAlertContext';
 
 const Sidebar = ({ isCollapsed, isMobileOpen, toggleSidebar }) => {
   const { user, isAdmin } = useAuth();
-  const { alertCount } = useSinistreAlert();
   const location = useLocation();
 
   const isActive = (path) => location.pathname === path ? 'active-link' : '';
@@ -39,23 +37,6 @@ const Sidebar = ({ isCollapsed, isMobileOpen, toggleSidebar }) => {
             <Link to="/sinistres" className={isActive('/sinistres')} title={isCollapsed ? "Gestion des Sinistres" : ""}>
               <span className="nav-icon">🚗</span>
               <span className="nav-text">Gestion des Sinistres</span>
-              {alertCount > 0 && (
-                <span className="nav-badge" style={{
-                  backgroundColor: '#ef4444',
-                  color: 'white',
-                  borderRadius: '50%',
-                  width: '20px',
-                  height: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                  marginLeft: 'auto'
-                }}>
-                  {alertCount}
-                </span>
-              )}
             </Link>
           </li>
           <li>
