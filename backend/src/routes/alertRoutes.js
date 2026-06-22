@@ -9,5 +9,6 @@ router.use(authMiddleware.protect);
 
 router.get('/', alertController.getExpiringClients);
 router.get('/count', alertController.getAlertCount);
+router.get('/payments', alertController.getPaymentAlerts);
 
 module.exports = router;

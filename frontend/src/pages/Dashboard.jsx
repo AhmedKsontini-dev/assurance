@@ -16,7 +16,9 @@ const Dashboard = () => {
   const [upcomingExpenses, setUpcomingExpenses] = useState([]);
   const [viewingClient, setViewingClient] = useState(null);
   const [viewingClientVersements, setViewingClientVersements] = useState([]);
+  const [viewingClientTranches, setViewingClientTranches] = useState([]);
   const [filterType, setFilterType] = useState('ajouts'); // 'ajouts' or 'modifications'
+  const [paymentAlerts, setPaymentAlerts] = useState([]);
 
   // État pour le modal des notes clients
   const [viewingNotesClient, setViewingNotesClient] = useState(null);
@@ -27,11 +29,33 @@ const Dashboard = () => {
   const handleViewClient = async (client) => {
     setViewingClient(client);
     setViewingClientVersements([]);
+    setViewingClientTranches([]);
     try {
       const res = await api.get(`/clients/${client.id}/versements`);
       setViewingClientVersements(res.data.data);
     } catch (err) {
       console.error('Failed to fetch client payments:', err);
+    }
+    try {
+      const res = await api.get(`/clients/${client.id}/tranches`);
+      setViewingClientTranches(res.data.data);
+    } catch (err) {
+      console.error('Failed to fetch client tranches:', err);
+    }
+  };
+
+  const handlePayTranche = async (trancheId) => {
+    try {
+      await api.post(`/clients/${viewingClient.id}/tranches/${trancheId}/pay`);
+      
+      const trRes = await api.get(`/clients/${viewingClient.id}/tranches`);
+      setViewingClientTranches(trRes.data.data);
+      const veRes = await api.get(`/clients/${viewingClient.id}/versements`);
+      setViewingClientVersements(veRes.data.data);
+      
+      fetchPaymentAlerts(); // Refresh alerts on dashboard
+    } catch (err) {
+      console.error("Erreur lors du paiement de la tranche", err);
     }
   };
 
@@ -113,11 +137,21 @@ const Dashboard = () => {
     }
   };
 
+  const fetchPaymentAlerts = async () => {
+    try {
+      const response = await api.get('/alerts/payments?days=10');
+      setPaymentAlerts(response.data.data);
+    } catch (err) {
+      console.error('Failed to fetch payment alerts', err);
+    }
+  };
+
   useEffect(() => {
     if (user && user.id) {
       fetchAnalytics();
       fetchUpcomingEvents();
       fetchUpcomingExpenses();
+      fetchPaymentAlerts();
     }
   }, [user, statsDate, filterType]);
 
@@ -196,147 +230,121 @@ const Dashboard = () => {
       </div>
 
       {/* Payment Reminder Alerts */}
-      {(() => {
-        const todayDate = new Date();
-        todayDate.setHours(0, 0, 0, 0);
-
-        const clientsToCheck = data && data.all_clients ? data.all_clients : (data && data.clients ? data.clients : []);
-        const paymentAlerts = clientsToCheck.filter(client => {
-          const total = parseFloat(client.total) || 0;
-          const paid = parseFloat(client.montant_paye) || 0;
-          const remaining = total - paid;
-          
-          if (remaining <= 0 || !client.date_prochain_paiement) return false;
-
-          const nextPaymentDate = new Date(client.date_prochain_paiement);
-          nextPaymentDate.setHours(0, 0, 0, 0);
-
-          const diffTime = nextPaymentDate - todayDate;
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-          return diffDays >= 0 && diffDays <= 10;
-        }).sort((a, b) => new Date(a.date_prochain_paiement) - new Date(b.date_prochain_paiement));
-
-        if (paymentAlerts.length === 0) return null;
-
-        return (
-          <div className="payment-alerts-banner" style={{
-            background: 'linear-gradient(135deg, #fff 0%, #fff7f7 100%)',
-            borderRadius: '16px',
-            padding: '20px',
-            marginBottom: '30px',
-            borderLeft: '5px solid #e74c3c',
-            boxShadow: '0 10px 25px -5px rgba(231, 76, 60, 0.1)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '15px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ background: '#e74c3c', padding: '8px', borderRadius: '10px' }}>
-                <Bell size={20} color="white" />
-              </div>
-              <h2 style={{ fontSize: '1.2rem', margin: 0, color: '#1e293b' }}>Rappels de Paiement Immédiats</h2>
+      {paymentAlerts && paymentAlerts.length > 0 && (
+        <div className="payment-alerts-banner" style={{
+          background: 'linear-gradient(135deg, #fff 0%, #fff7f7 100%)',
+          borderRadius: '16px',
+          padding: '20px',
+          marginBottom: '30px',
+          borderLeft: '5px solid #e74c3c',
+          boxShadow: '0 10px 25px -5px rgba(231, 76, 60, 0.1)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '15px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ background: '#e74c3c', padding: '8px', borderRadius: '10px' }}>
+              <Bell size={20} color="white" />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '15px' }}>
-              {paymentAlerts.map(client => {
-                const total = parseFloat(client.total) || 0;
-                const paid = parseFloat(client.montant_paye) || 0;
-                const remaining = total - paid;
-                const nextPaymentDate = new Date(client.date_prochain_paiement);
-                nextPaymentDate.setHours(0, 0, 0, 0);
-                const diffTime = nextPaymentDate - todayDate;
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                let relativeText = "";
-                let badgeColor = "";
-                let badgeBg = "";
-
-                if (diffDays < 0) {
-                  relativeText = `En retard de ${Math.abs(diffDays)}j`;
-                  badgeColor = '#ef4444';
-                  badgeBg = '#fee2e2';
-                } else if (diffDays === 0) {
-                  relativeText = "Aujourd'hui";
-                  badgeColor = '#ef4444';
-                  badgeBg = '#fee2e2';
-                } else {
-                  relativeText = `Dans ${diffDays} jour${diffDays > 1 ? 's' : ''}`;
-                  badgeColor = '#d97706';
-                  badgeBg = '#fef3c7';
-                }
-
-                return (
-                  <div key={client.id} style={{
-                    background: 'white',
-                    padding: '16px',
-                    borderRadius: '12px',
-                    border: '1px solid #fecaca',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '12px',
-                    transition: 'transform 0.2s, box-shadow 0.2s',
-                    boxShadow: '0 2px 4px rgba(231, 76, 60, 0.02)'
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 5px 15px rgba(231, 76, 60, 0.08)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(231, 76, 60, 0.02)';
-                  }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div>
-                        <h4 style={{ margin: 0, color: '#1e293b', fontSize: '1rem', fontWeight: '700' }}>{client.societaire}</h4>
-                        <span style={{ fontSize: '0.8rem', color: '#64748b', fontFamily: 'monospace' }}>Police: {client.police}</span>
-                      </div>
-                      <span style={{
-                        fontSize: '0.75rem',
-                        padding: '4px 8px',
-                        borderRadius: '12px',
-                        background: badgeBg,
-                        color: badgeColor,
-                        fontWeight: '700'
-                      }}>
-                        {relativeText}
-                      </span>
-                    </div>
-                    
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '5px' }}>
-                      <div>
-                        <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'block' }}>Reste à payer</span>
-                        <span style={{ fontSize: '1.1rem', fontWeight: '700', color: '#e74c3c' }}>{remaining.toFixed(2)} DT</span>
-                      </div>
-                      <button 
-                        onClick={() => handleViewClient(client)}
-                        style={{
-                          background: '#f1f5f9',
-                          border: 'none',
-                          color: 'var(--primary-color)',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          fontSize: '0.85rem',
-                          fontWeight: '600',
-                          cursor: 'pointer',
-                          transition: 'background 0.2s'
-                        }}
-                        onMouseOver={(e) => e.currentTarget.style.background = '#e2e8f0'}
-                        onMouseOut={(e) => e.currentTarget.style.background = '#f1f5f9'}
-                      >
-                        Voir Client
-                      </button>
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
-                      Échéance : <strong>{new Date(client.date_prochain_paiement).toLocaleDateString('fr-FR')}</strong>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <h2 style={{ fontSize: '1.2rem', margin: 0, color: '#1e293b' }}>Rappels de Paiement Immédiats</h2>
           </div>
-        );
-      })()}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '15px' }}>
+            {paymentAlerts.map(alert => {
+              const diffDays = alert.days_remaining;
+
+              let relativeText = "";
+              let badgeColor = "";
+              let badgeBg = "";
+
+              if (diffDays < 0) {
+                relativeText = `En retard de ${Math.abs(diffDays)}j`;
+                badgeColor = '#ef4444';
+                badgeBg = '#fee2e2';
+              } else if (diffDays === 0) {
+                relativeText = "Aujourd'hui";
+                badgeColor = '#ef4444';
+                badgeBg = '#fee2e2';
+              } else {
+                relativeText = `Dans ${diffDays} jour${diffDays > 1 ? 's' : ''}`;
+                badgeColor = '#d97706';
+                badgeBg = '#fef3c7';
+              }
+
+              // Build a dummy client object to pass to handleViewClient
+              const mockClient = { id: alert.client_id, societaire: alert.societaire, police: alert.police };
+
+              return (
+                <div key={alert.id} style={{
+                  background: 'white',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: '1px solid #fecaca',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  boxShadow: '0 2px 4px rgba(231, 76, 60, 0.02)'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 5px 15px rgba(231, 76, 60, 0.08)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(231, 76, 60, 0.02)';
+                }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <h4 style={{ margin: 0, color: '#1e293b', fontSize: '1rem', fontWeight: '700' }}>{alert.societaire}</h4>
+                      <span style={{ fontSize: '0.8rem', color: '#64748b', fontFamily: 'monospace' }}>Police: {alert.police}</span>
+                    </div>
+                    <span style={{
+                      fontSize: '0.75rem',
+                      padding: '4px 8px',
+                      borderRadius: '12px',
+                      background: badgeBg,
+                      color: badgeColor,
+                      fontWeight: '700'
+                    }}>
+                      {relativeText}
+                    </span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '5px' }}>
+                    <div>
+                      <span style={{ fontSize: '0.8rem', color: '#64748b', display: 'block' }}>Montant Tranche</span>
+                      <span style={{ fontSize: '1.1rem', fontWeight: '700', color: '#e74c3c' }}>{parseFloat(alert.montant_tranche).toFixed(2)} DT</span>
+                    </div>
+                    <button 
+                      onClick={() => handleViewClient(mockClient)}
+                      style={{
+                        background: '#f1f5f9',
+                        border: 'none',
+                        color: 'var(--primary-color)',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '0.85rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.background = '#e2e8f0'}
+                      onMouseOut={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                    >
+                      Voir Client
+                    </button>
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', borderTop: '1px solid #f1f5f9', paddingTop: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Échéance : <strong>{new Date(alert.date_echeance).toLocaleDateString('fr-FR')}</strong></span>
+                    <span>Tranche N° {alert.numero_tranche}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Upcoming Expenses Reminder Banner */}
       {upcomingExpenses.length > 0 && (() => {
@@ -823,16 +831,68 @@ const Dashboard = () => {
                     <span className="detail-label">Mode de règlement</span>
                     <span className="detail-value">{viewingClient.paiement || '-'}</span>
                   </div>
-                  <div className="detail-item">
-                    <span className="detail-label">Prochain paiement prévu</span>
-                    <span className="detail-value" style={{ fontWeight: '700', color: '#e67e22' }}>
-                      {viewingClient.date_prochain_paiement ? new Date(viewingClient.date_prochain_paiement).toLocaleDateString() : '-'}
-                    </span>
-                  </div>
                 </div>
               </div>
 
-              {/* Section 4: Historique des Versements */}
+              {/* Section 4: Tranches de Paiement */}
+              <div className="detail-section">
+                <div className="detail-section-title">
+                  📅 Tranches de Paiement
+                </div>
+                <div className="payments-table-container">
+                  {viewingClientTranches && viewingClientTranches.length > 0 ? (
+                    <table className="payments-table">
+                      <thead>
+                        <tr>
+                          <th>Tranche N°</th>
+                          <th>Date d'échéance</th>
+                          <th>Montant</th>
+                          <th>Statut</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {viewingClientTranches.map(t => (
+                          <tr key={t.id}>
+                            <td>{t.numero_tranche}</td>
+                            <td style={{ color: t.statut === 'En attente' && new Date(t.date_echeance) < new Date() ? '#ef4444' : 'inherit' }}>
+                              {t.date_echeance ? new Date(t.date_echeance).toLocaleDateString() : '-'}
+                            </td>
+                            <td>{parseFloat(t.montant_tranche).toFixed(2)} DT</td>
+                            <td>
+                              <span className={`badge-count ${t.statut === 'Payée' ? 'success' : 'warning'}`} style={{ padding: '4px 8px', borderRadius: '4px', background: t.statut === 'Payée' ? '#dcfce7' : '#fef9c3', color: t.statut === 'Payée' ? '#16a34a' : '#ca8a04' }}>
+                                {t.statut}
+                              </span>
+                            </td>
+                            <td>
+                              {t.statut === 'En attente' ? (
+                                <button 
+                                  onClick={() => handlePayTranche(t.id)}
+                                  style={{
+                                    background: '#3b82f6', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold'
+                                  }}
+                                >
+                                  Marquer payée
+                                </button>
+                              ) : (
+                                <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                                  Payé le {t.date_paiement_reel ? new Date(t.date_paiement_reel).toLocaleDateString() : '-'}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="no-data-msg">
+                      Aucune tranche configurée pour ce client.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Section 5: Historique des Versements */}
               <div className="detail-section">
                 <div className="detail-section-title">
                   📜 Historique des Versements

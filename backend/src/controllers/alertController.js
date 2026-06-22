@@ -1,4 +1,5 @@
 const Client = require('../models/clientModel');
+const Tranche = require('../models/trancheModel');
 
 /**
  * Get all clients with expiring policies (within N days).
@@ -53,6 +54,44 @@ exports.getAlertCount = async (req, res, next) => {
     res.status(200).json({
       status: 'success',
       count
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Get payment alerts (pending tranches within N days)
+ */
+exports.getPaymentAlerts = async (req, res, next) => {
+  try {
+    const threshold = parseInt(req.query.days) || 7;
+    const tranches = await Tranche.getPendingAlerts(threshold);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const alerts = tranches.map(tranche => {
+      const expDate = new Date(tranche.date_echeance);
+      expDate.setHours(0, 0, 0, 0);
+      const diffTime = expDate.getTime() - today.getTime();
+      const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      let level = 'orange'; // default: less than 7 days
+      if (daysRemaining <= 3) level = 'red';    // very close
+      if (daysRemaining < 0) level = 'expired'; // overdue
+
+      return {
+        ...tranche,
+        days_remaining: daysRemaining,
+        alert_level: level
+      };
+    });
+
+    res.status(200).json({
+      status: 'success',
+      total_alerts: alerts.length,
+      data: alerts
     });
   } catch (err) {
     next(err);

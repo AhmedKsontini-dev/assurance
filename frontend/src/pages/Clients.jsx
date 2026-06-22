@@ -13,6 +13,7 @@ const Clients = () => {
   const [editingId, setEditingId] = useState(null);
   const [viewingClient, setViewingClient] = useState(null);
   const [viewingClientVersements, setViewingClientVersements] = useState([]);
+  const [viewingClientTranches, setViewingClientTranches] = useState([]);
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [renewingClient, setRenewingClient] = useState(null);
@@ -139,7 +140,9 @@ const Clients = () => {
     payment_method: '',
     date_prochain_paiement: '',
     category: '',
-    created_at: ''
+    created_at: '',
+    nb_tranches: 0,
+    tranches: []
   };
   const [formData, setFormData] = useState(initialFormState);
 
@@ -238,6 +241,10 @@ const Clients = () => {
       if (!editingId) {
         delete payload.montant_verse_aujourd_hui;
       }
+
+      // Temporarily exclude nb_tranches and dates_tranches until database migration is executed
+      delete payload.nb_tranches;
+      delete payload.dates_tranches;
 
       if (editingId) {
         await api.put(`/clients/${editingId}`, payload);
@@ -338,6 +345,7 @@ const Clients = () => {
     setViewingClient(client);
     setOpenDropdownId(null);
     setViewingClientVersements([]);
+    setViewingClientTranches([]);
     setClientHistory([]);
     setActiveDetailTab('infos');
     try {
@@ -347,10 +355,33 @@ const Clients = () => {
       console.error('Failed to fetch client payments:', err);
     }
     try {
+      const res = await api.get(`/clients/${client.id}/tranches`);
+      setViewingClientTranches(res.data.data);
+    } catch (err) {
+      console.error('Failed to fetch client tranches:', err);
+    }
+    try {
       const res = await api.get(`/clients/${client.id}/history`);
       setClientHistory(res.data.data);
     } catch (err) {
       console.error('Failed to fetch client history:', err);
+    }
+  };
+
+  const handlePayTranche = async (trancheId) => {
+    try {
+      await api.post(`/clients/${viewingClient.id}/tranches/${trancheId}/pay`);
+      setSuccessMessage("Tranche marquée comme payée avec succès !");
+      
+      const trRes = await api.get(`/clients/${viewingClient.id}/tranches`);
+      setViewingClientTranches(trRes.data.data);
+      const veRes = await api.get(`/clients/${viewingClient.id}/versements`);
+      setViewingClientVersements(veRes.data.data);
+      
+      fetchClients();
+    } catch (err) {
+      setError(err.response?.data?.message || "Erreur lors du paiement de la tranche");
+      setTimeout(() => setError(''), 3000);
     }
   };
 
@@ -408,7 +439,9 @@ const Clients = () => {
       montant_paye: client.montant_paye || '',
       montant_verse_aujourd_hui: '',
       category: client.category || '',
-      created_at: client.created_at ? new Date(client.created_at).toLocaleDateString('en-CA') : ''
+      created_at: client.created_at ? new Date(client.created_at).toLocaleDateString('en-CA') : '',
+      nb_tranches: client.nb_tranches || 0,
+      dates_tranches: client.dates_tranches ? (typeof client.dates_tranches === 'string' ? JSON.parse(client.dates_tranches) : client.dates_tranches) : []
     });
     setShowForm(true);
     setDuplicateError(null);
@@ -525,7 +558,7 @@ const Clients = () => {
                     <td>${c.payment_status === 'Paid' ? 'Payé' : c.payment_status === 'Partial' ? 'Partiellement payé' : 'Impayé'}</td>
                     <td>${c.payment_date ? new Date(c.payment_date).toLocaleDateString() : '-'}</td>
                     <td>${c.montant_paye !== null && c.montant_paye !== undefined ? c.montant_paye + ' DT' : '-'}</td>
-                    <td>${c.date_prochain_paiement ? new Date(c.date_prochain_paiement).toLocaleDateString() : '-'}</td>
+                    <td>${c.prochaine_echeance ? new Date(c.prochaine_echeance).toLocaleDateString() : 'Soldé'}</td>
                     <td>${c.category || '-'}</td>
                   </tr>
                 `).join('')}
@@ -1142,23 +1175,67 @@ const Clients = () => {
                         <option value="Paid">✅ Payé</option>
                       </select>
                     </div>
-                    <div className="form-group">
-                      <label>Date du Paiement</label>
+                    <div className="form-group cf-span3">
+                      <label>Nombre de Tranches</label>
                       <input
-                        type="date"
-                        value={formData.payment_date}
-                        onChange={e => setFormData({...formData, payment_date: e.target.value})}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Date du Prochain Paiement</label>
-                      <input
-                        type="date"
-                        value={formData.date_prochain_paiement}
-                        onChange={e => setFormData({...formData, date_prochain_paiement: e.target.value})}
+                        type="number"
+                        min="0"
+                        value={formData.nb_tranches}
+                        onChange={e => {
+                          const nb = parseInt(e.target.value) || 0;
+                          const currentTranches = formData.tranches || [];
+                          const newTranches = [];
+                          for (let i = 0; i < nb; i++) {
+                            newTranches.push(currentTranches[i] || { date_echeance: '', montant_tranche: '' });
+                          }
+                          setFormData({...formData, nb_tranches: nb, tranches: newTranches});
+                        }}
+                        placeholder="0"
+                        style={{ maxWidth: '200px' }}
                       />
                     </div>
                   </div>
+                  
+                  {/* Dynamic Tranches */}
+                  {formData.nb_tranches > 0 && (
+                    <div style={{ marginTop: '20px', padding: '15px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      <h4 style={{ margin: '0 0 15px 0', fontSize: '0.95rem', color: '#475569', fontWeight: '600' }}>
+                        📅 Dates et Montants des Tranches
+                      </h4>
+                      <div className="cf-grid cf-grid-2">
+                        {formData.tranches.map((tranche, index) => (
+                          <div key={index} style={{ display: 'flex', gap: '15px', marginBottom: '10px' }}>
+                            <div className="form-group" style={{ flex: 1 }}>
+                              <label>Date Tranche {index + 1}</label>
+                              <input
+                                type="date"
+                                value={tranche.date_echeance}
+                                onChange={e => {
+                                  const newTranches = [...formData.tranches];
+                                  newTranches[index].date_echeance = e.target.value;
+                                  setFormData({...formData, tranches: newTranches});
+                                }}
+                              />
+                            </div>
+                            <div className="form-group" style={{ flex: 1 }}>
+                              <label>Montant Tranche {index + 1} (DT)</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={tranche.montant_tranche}
+                                onChange={e => {
+                                  const newTranches = [...formData.tranches];
+                                  newTranches[index].montant_tranche = e.target.value;
+                                  setFormData({...formData, tranches: newTranches});
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* ── Footer Actions ── */}
@@ -1356,20 +1433,68 @@ const Clients = () => {
                         <span className="detail-label">Mode de règlement</span>
                         <span className="detail-value">{viewingClient.paiement || '-'}</span>
                       </div>
-                      <div className="detail-item">
-                        <span className="detail-label">Dernière date de règlement</span>
-                        <span className="detail-value">{viewingClient.payment_date ? new Date(viewingClient.payment_date).toLocaleDateString() : '-'}</span>
-                      </div>
-                      <div className="detail-item">
-                        <span className="detail-label">Prochain paiement prévu</span>
-                        <span className="detail-value" style={{ fontWeight: '700', color: '#e67e22' }}>
-                          {viewingClient.date_prochain_paiement ? new Date(viewingClient.date_prochain_paiement).toLocaleDateString() : '-'}
-                        </span>
-                      </div>
                     </div>
                   </div>
 
-                  {/* Section 4: Historique des Versements */}
+                  {/* Section 4: Tranches de Paiement */}
+                  <div className="detail-section">
+                    <div className="detail-section-title">
+                      📅 Tranches de Paiement
+                    </div>
+                    <div className="payments-table-container">
+                      {viewingClientTranches && viewingClientTranches.length > 0 ? (
+                        <table className="payments-table">
+                          <thead>
+                            <tr>
+                              <th>Tranche N°</th>
+                              <th>Date d'échéance</th>
+                              <th>Montant</th>
+                              <th>Statut</th>
+                              <th>Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {viewingClientTranches.map(t => (
+                              <tr key={t.id}>
+                                <td>{t.numero_tranche}</td>
+                                <td style={{ color: t.statut === 'En attente' && new Date(t.date_echeance) < new Date() ? '#ef4444' : 'inherit' }}>
+                                  {t.date_echeance ? new Date(t.date_echeance).toLocaleDateString() : '-'}
+                                </td>
+                                <td>{parseFloat(t.montant_tranche).toFixed(2)} DT</td>
+                                <td>
+                                  <span className={`badge-count ${t.statut === 'Payée' ? 'success' : 'warning'}`} style={{ padding: '4px 8px', borderRadius: '4px', background: t.statut === 'Payée' ? '#dcfce7' : '#fef9c3', color: t.statut === 'Payée' ? '#16a34a' : '#ca8a04' }}>
+                                    {t.statut}
+                                  </span>
+                                </td>
+                                <td>
+                                  {t.statut === 'En attente' ? (
+                                    <button 
+                                      onClick={() => handlePayTranche(t.id)}
+                                      style={{
+                                        background: '#3b82f6', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold'
+                                      }}
+                                    >
+                                      Marquer payée
+                                    </button>
+                                  ) : (
+                                    <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                                      Payé le {t.date_paiement_reel ? new Date(t.date_paiement_reel).toLocaleDateString() : '-'}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <div className="no-data-msg">
+                          Aucune tranche configurée pour ce client.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Section 5: Historique des Versements */}
                   <div className="detail-section">
                     <div className="detail-section-title">
                       📜 Historique des Versements
@@ -1491,7 +1616,7 @@ const Clients = () => {
               <th>Statut Paiement</th>
               <th>Total</th>
               <th>Montant Payé</th>
-              <th>Prochain Paiement</th>
+              <th>Prochaine Échéance</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -1593,24 +1718,24 @@ const Clients = () => {
                 
                 <td className="amount" style={{ color: '#27ae60' }}>{paidAmount.toFixed(2)} DT</td>
                 <td className={(() => {
-                  if (!client.date_prochain_paiement || remainingAmount <= 0) return '';
+                  if (!client.prochaine_echeance) return 'expiration-success';
                   const today = new Date();
                   today.setHours(0,0,0,0);
-                  const nextPay = new Date(client.date_prochain_paiement);
+                  const nextPay = new Date(client.prochaine_echeance);
                   nextPay.setHours(0,0,0,0);
                   const diff = Math.ceil((nextPay - today) / (1000 * 60 * 60 * 24));
-                  if (diff <= 0) return 'expiration-expired';
+                  if (diff < 0) return 'expiration-expired';
                   if (diff <= 3) return 'expiration-critical';
                   if (diff <= 7) return 'expiration-warning';
                   return '';
                 })()}>
-                  {client.date_prochain_paiement && remainingAmount > 0 ? (
+                  {client.prochaine_echeance ? (
                     <div className="expiration-cell">
-                      <span>{new Date(client.date_prochain_paiement).toLocaleDateString()}</span>
+                      <span>{new Date(client.prochaine_echeance).toLocaleDateString()}</span>
                       {(() => {
                         const today = new Date();
                         today.setHours(0,0,0,0);
-                        const nextPay = new Date(client.date_prochain_paiement);
+                        const nextPay = new Date(client.prochaine_echeance);
                         nextPay.setHours(0,0,0,0);
                         const diff = Math.ceil((nextPay - today) / (1000 * 60 * 60 * 24));
                         if (diff < 0) return <span className="expire-badge expired">En retard</span>;
@@ -1620,7 +1745,7 @@ const Clients = () => {
                         return null;
                       })()}
                     </div>
-                  ) : '-'}
+                  ) : <span style={{ color: '#16a34a', fontWeight: 'bold' }}>Soldé</span>}
                 </td>
                 <td className="actions-cell">
                   <div className="dropdown">

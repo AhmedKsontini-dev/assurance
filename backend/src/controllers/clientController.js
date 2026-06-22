@@ -4,6 +4,7 @@ const Versement = require('../models/versementModel');
 const Note = require('../models/noteModel');
 const logger = require('../utils/logger');
 const ClientHistory = require('../models/clientHistoryModel');
+const Tranche = require('../models/trancheModel');
 
 exports.getAllClients = async (req, res, next) => {
   try {
@@ -64,6 +65,21 @@ exports.createClient = async (req, res, next) => {
         methode_paiement: req.body.payment_method || req.body.paiement || 'Espece',
         user_id: req.user.id
       });
+    }
+
+    // Save tranches if any
+    if (req.body.tranches && Array.isArray(req.body.tranches) && req.body.tranches.length > 0) {
+      for (let i = 0; i < req.body.tranches.length; i++) {
+        const t = req.body.tranches[i];
+        if (t.date_echeance) {
+          await Tranche.create({
+            client_id: clientId,
+            numero_tranche: i + 1,
+            date_echeance: t.date_echeance,
+            montant_tranche: t.montant_tranche || 0
+          });
+        }
+      }
     }
 
     // Log client creation to client history
@@ -681,6 +697,126 @@ exports.getClientHistory = async (req, res, next) => {
       status: 'success',
       data: history
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getClientTranches = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const tranches = await Tranche.getByClientId(id);
+    res.status(200).json({
+      status: 'success',
+      data: tranches
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.payTranche = async (req, res, next) => {
+  try {
+    const { id: clientId, trancheId } = req.params;
+    
+    // Check if tranche exists and belongs to client
+    const tranche = await Tranche.getById(trancheId);
+    if (!tranche || tranche.client_id !== parseInt(clientId)) {
+      return res.status(404).json({ status: 'fail', message: 'Tranche non trouvée' });
+    }
+    if (tranche.statut === 'Payée') {
+      return res.status(400).json({ status: 'fail', message: 'Cette tranche est déjà payée' });
+    }
+
+    const client = await Client.getById(clientId);
+    if (!client) {
+      return res.status(404).json({ status: 'fail', message: 'Client non trouvé' });
+    }
+
+    // Mark as paid
+    const success = await Tranche.markAsPaid(trancheId);
+    if (!success) {
+      return res.status(500).json({ status: 'fail', message: 'Erreur lors du paiement de la tranche' });
+    }
+
+    const amount = parseFloat(tranche.montant_tranche) || 0;
+    const today = new Date().toISOString().split('T')[0];
+
+    // Create a versement
+    const versementId = await Versement.create({
+      client_id: clientId,
+      montant: amount,
+      date_versement: today,
+      methode_paiement: client.paiement || 'Espece',
+      user_id: req.user.id
+    });
+
+    // Update client montant_paye and status
+    const currentPaid = parseFloat(client.montant_paye || 0);
+    const newPaid = currentPaid + amount;
+    const total = parseFloat(client.total || 0);
+    const reste_a_payer = total - newPaid;
+
+    let payment_status = 'Unpaid';
+    if (newPaid >= total && total > 0) {
+      payment_status = 'Paid';
+    } else if (newPaid > 0) {
+      payment_status = 'Partial';
+    }
+
+    const updateData = {
+      montant_paye: newPaid,
+      reste_a_payer: reste_a_payer,
+      payment_status,
+      payment_date: payment_status === 'Paid' ? today : client.payment_date
+    };
+
+    await Client.update(clientId, updateData);
+
+    // Log history
+    const userName = req.user.name || 'Utilisateur';
+    await ClientHistory.create({
+      client_id: clientId,
+      utilisateur_id: req.user.id,
+      nom_utilisateur: userName,
+      action_effectuee: 'Paiement de la tranche ' + tranche.numero_tranche,
+      ancienne_valeur: 'En attente',
+      nouvelle_valeur: 'Payée'
+    });
+
+    await ClientHistory.create({
+      client_id: clientId,
+      utilisateur_id: req.user.id,
+      nom_utilisateur: userName,
+      action_effectuee: 'Modification du montant payé',
+      ancienne_valeur: currentPaid.toFixed(2) + ' DT',
+      nouvelle_valeur: newPaid.toFixed(2) + ' DT'
+    });
+
+    if (payment_status !== client.payment_status) {
+      await ClientHistory.create({
+        client_id: clientId,
+        utilisateur_id: req.user.id,
+        nom_utilisateur: userName,
+        action_effectuee: 'Modification du statut de paiement',
+        ancienne_valeur: client.payment_status || 'Unpaid',
+        nouvelle_valeur: payment_status
+      });
+    }
+
+    await logger.logActivity(
+      req.user.id,
+      'UPDATE',
+      clientId,
+      `Tranche ${tranche.numero_tranche} payée (${amount} DT) pour le client ID: ${clientId}`
+    );
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Tranche marquée comme payée et versement ajouté',
+      versementId
+    });
+
   } catch (err) {
     next(err);
   }

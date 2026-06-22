@@ -5,10 +5,13 @@ class Client {
     let query = `
       SELECT 
         clients.*,
-        users.name AS creator_name
+        users.name AS creator_name,
+        MIN(pt.date_echeance) AS prochaine_echeance
       FROM clients
       LEFT JOIN users 
         ON users.id = clients.created_by
+      LEFT JOIN paiement_tranches pt
+        ON clients.id = pt.client_id AND pt.statut = 'En attente'
       WHERE clients.is_deleted = 0
     `;
     const params = [];
@@ -38,6 +41,8 @@ class Client {
         query += ` AND ` + conditions.join(' AND ');
       }
 
+    query += ` GROUP BY clients.id`;
+
     query += ` ORDER BY clients.created_at DESC, clients.id DESC`;
 
     const [rows] = await db.query(query, params);
@@ -48,11 +53,15 @@ class Client {
     const [rows] = await db.query(`
       SELECT 
         clients.*,
-        users.name AS creator_name
+        users.name AS creator_name,
+        MIN(pt.date_echeance) AS prochaine_echeance
       FROM clients
       LEFT JOIN users 
         ON users.id = clients.created_by
+      LEFT JOIN paiement_tranches pt
+        ON clients.id = pt.client_id AND pt.statut = 'En attente'
       WHERE clients.id = ? AND clients.is_deleted = 0
+      GROUP BY clients.id
     `, [id]);
 
     return rows[0];
@@ -61,6 +70,7 @@ class Client {
   static async create(data) {
     const toNum = (val) => (val === '' || val === undefined || val === null) ? null : parseFloat(val);
     const toDate = (val) => (val === '' || val === undefined || val === null) ? null : val;
+    const toJson = (val) => (val === '' || val === undefined || val === null) ? null : (typeof val === 'string' ? val : JSON.stringify(val));
 
     const {
       police, societaire, adresse, tel, paiement, montant,
@@ -68,6 +78,7 @@ class Client {
       date_effet, date_expiration, total, created_by,
       payment_status, payment_date, payment_method, category,
       montant_paye, date_prochain_paiement, created_at
+      // nb_tranches, dates_tranches - excluded until database migration is executed
     } = data;
 
     const [result] = await db.query(
@@ -114,8 +125,14 @@ class Client {
 
     const numFields = ['montant', 'reduction', 'total', 'montant_paye', 'reste_a_payer'];
     const dateFields = ['date_effet', 'date_expiration', 'payment_date', 'date_prochain_paiement', 'created_at'];
+    const jsonFields = []; // dates_tranches excluded until database migration is executed
 
     Object.keys(data).forEach(key => {
+      // Skip nb_tranches and dates_tranches until database migration is executed
+      if (key === 'nb_tranches' || key === 'dates_tranches') {
+        return;
+      }
+
       if (data[key] !== undefined) {
         let val = data[key];
 
@@ -125,9 +142,13 @@ class Client {
             val = key === 'montant_paye' ? 0.00 : null;
           } else if (dateFields.includes(key)) {
             val = null;
+          } else if (jsonFields.includes(key)) {
+            val = null;
           }
         } else if (numFields.includes(key) && val !== null) {
           val = parseFloat(val);
+        } else if (jsonFields.includes(key) && val !== null) {
+          val = typeof val === 'string' ? val : JSON.stringify(val);
         }
 
         fields.push(`${key} = ?`);
@@ -205,6 +226,7 @@ class Client {
    */
   static async isExactDuplicate(data) {
     // List of fields to compare for exact duplicate detection (including date fields)
+    // nb_tranches excluded until database migration is executed
     const fields = [
       'police', 'societaire', 'adresse', 'tel', 'paiement', 'montant',
       'reduction', 'rc', 'papier', 'usage_vehicle', 'immatriculation',
