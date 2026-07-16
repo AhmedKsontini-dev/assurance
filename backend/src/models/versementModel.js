@@ -45,6 +45,22 @@ class Versement {
     );
     return result.affectedRows;
   }
+
+  static async updateDateByOldDate(clientId, oldDate, newDate) {
+    const [result] = await db.query(
+      `UPDATE client_versements SET date_versement = ? WHERE client_id = ? AND date_versement = ?`,
+      [newDate, clientId, oldDate]
+    );
+    return result.affectedRows;
+  }
+
+  static async update(id, montant, date_versement) {
+    const [result] = await db.query(
+      `UPDATE client_versements SET montant = ?, date_versement = ? WHERE id = ?`,
+      [montant, date_versement, id]
+    );
+    return result.affectedRows > 0;
+  }
 }
 
 // Ensure table exists

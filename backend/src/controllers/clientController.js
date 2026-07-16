@@ -58,10 +58,15 @@ exports.createClient = async (req, res, next) => {
 
     // Create initial versement if montant_paye > 0
     if (req.body.montant_paye && parseFloat(req.body.montant_paye) > 0) {
+      let transactionDate = req.body.created_at || req.body.payment_date || new Date().toISOString().split('T')[0];
+      if (transactionDate.includes('T')) {
+        transactionDate = transactionDate.split('T')[0];
+      }
+
       await Versement.create({
         client_id: clientId,
         montant: parseFloat(req.body.montant_paye),
-        date_versement: req.body.payment_date || new Date().toISOString().split('T')[0],
+        date_versement: transactionDate,
         methode_paiement: req.body.payment_method || req.body.paiement || 'Espece',
         user_id: req.user.id
       });
@@ -136,15 +141,50 @@ exports.updateClient = async (req, res, next) => {
       // Fallback for old frontend sending raw montant_paye
       const newPaid = parseFloat(req.body.montant_paye) || 0;
       const oldPaid = parseFloat(oldClient.montant_paye) || 0;
-      if (newPaid !== oldPaid) {
+      
+      const versements = await Versement.getByClientId(req.params.id);
+      const initialVersement = versements.length > 0 ? versements[versements.length - 1] : null;
+
+      let dateChanged = false;
+      let newDateVersement = initialVersement ? initialVersement.date_versement : null;
+      
+      // Handle created_at change to sync initial versement date in Caisse
+      if (req.body.created_at) {
+        let newCreatedAt = req.body.created_at;
+        if (newCreatedAt.includes('T')) newCreatedAt = newCreatedAt.split('T')[0];
+        
+        if (initialVersement) {
+          // Compare YYYY-MM-DD
+          const oldVersementDate = new Date(initialVersement.date_versement).toLocaleDateString('en-CA'); 
+          // toLocaleDateString('en-CA') gives local YYYY-MM-DD, avoiding UTC timezone shifts
+          // Actually, let's just forcefully update if newCreatedAt is present
+          // We can just always update to newCreatedAt to be safe.
+          if (newCreatedAt !== oldVersementDate) {
+             dateChanged = true;
+             newDateVersement = newCreatedAt;
+          }
+        }
+      }
+
+      if (newPaid !== oldPaid || dateChanged) {
         const diff = newPaid - oldPaid;
-        await Versement.create({
-          client_id: req.params.id,
-          montant: diff,
-          date_versement: req.body.payment_date || new Date().toISOString().split('T')[0],
-          methode_paiement: req.body.payment_method || req.body.paiement || 'Espece',
-          user_id: req.user.id
-        });
+        if (initialVersement) {
+          // Update the initial versement's amount and/or date
+          const newInitialAmount = parseFloat(initialVersement.montant) + diff;
+          await Versement.update(initialVersement.id, newInitialAmount, newDateVersement);
+        } else if (newPaid !== oldPaid) {
+          // If no versement exists, create one
+          let createDate = req.body.created_at || req.body.payment_date || new Date().toISOString().split('T')[0];
+          if (createDate.includes('T')) createDate = createDate.split('T')[0];
+
+          await Versement.create({
+            client_id: req.params.id,
+            montant: diff,
+            date_versement: createDate,
+            methode_paiement: req.body.payment_method || req.body.paiement || 'Espece',
+            user_id: req.user.id
+          });
+        }
       }
     }
 
