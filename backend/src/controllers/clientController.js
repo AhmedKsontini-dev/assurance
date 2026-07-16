@@ -130,10 +130,13 @@ exports.updateClient = async (req, res, next) => {
       const currentPaid = parseFloat(oldClient.montant_paye) || 0;
       req.body.montant_paye = currentPaid + addedAmount;
       
+      let clientCreatedAt = req.body.created_at || (oldClient.created_at ? new Date(oldClient.created_at).toLocaleDateString('en-CA') : new Date().toISOString().split('T')[0]);
+      if (clientCreatedAt.includes('T')) clientCreatedAt = clientCreatedAt.split('T')[0];
+
       await Versement.create({
         client_id: req.params.id,
         montant: addedAmount,
-        date_versement: req.body.payment_date || new Date().toISOString().split('T')[0],
+        date_versement: clientCreatedAt,
         methode_paiement: req.body.payment_method || oldClient.paiement || 'Espece',
         user_id: req.user.id
       });
@@ -174,7 +177,7 @@ exports.updateClient = async (req, res, next) => {
           await Versement.update(initialVersement.id, newInitialAmount, newDateVersement);
         } else if (newPaid !== oldPaid) {
           // If no versement exists, create one
-          let createDate = req.body.created_at || req.body.payment_date || new Date().toISOString().split('T')[0];
+          let createDate = req.body.created_at || (oldClient.created_at ? new Date(oldClient.created_at).toLocaleDateString('en-CA') : new Date().toISOString().split('T')[0]);
           if (createDate.includes('T')) createDate = createDate.split('T')[0];
 
           await Versement.create({

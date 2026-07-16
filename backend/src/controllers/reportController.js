@@ -193,7 +193,7 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
         FROM clients c
         INNER JOIN client_history ch ON c.id = ch.client_id
         WHERE ch.utilisateur_id = ? AND c.is_deleted = 0
-        ${statsDate ? 'AND DATE(ch.date_modification) = ?' : ''}
+        ${statsDate ? 'AND DATE(ch.date_modification) = ?' : 'AND DATE(ch.date_modification) = CURDATE()'}
         
         UNION ALL
         
@@ -210,7 +210,7 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
         INNER JOIN client_versements v ON c.id = v.client_id
         INNER JOIN users u ON v.user_id = u.id
         WHERE v.user_id = ? AND v.annule = 0 AND c.is_deleted = 0
-        ${statsDate ? 'AND DATE(v.date_versement) = ?' : ''}
+        ${statsDate ? 'AND DATE(v.date_versement) = ?' : 'AND DATE(v.date_versement) = CURDATE()'}
         
         ORDER BY date_modification DESC
       `;
@@ -238,6 +238,8 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
       if (statsDate) {
         clientQuery += ' AND DATE(created_at) = ?';
         clientParams.push(statsDate);
+      } else {
+        clientQuery += ' AND DATE(created_at) = CURDATE()';
       }
       clientQuery += ' ORDER BY created_at DESC';
       const [clientRows] = await db.query(clientQuery, clientParams);
