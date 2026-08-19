@@ -60,6 +60,23 @@ class Tranche {
     return rows[0] || null;
   }
 
+  static async update(trancheId, data) {
+    const { date_echeance, montant_tranche } = data;
+    const [result] = await db.query(
+      `UPDATE paiement_tranches SET date_echeance = ?, montant_tranche = ? WHERE id = ? AND statut = 'En attente'`,
+      [date_echeance || null, parseFloat(montant_tranche) || 0, trancheId]
+    );
+    return result.affectedRows > 0;
+  }
+
+  static async delete(trancheId) {
+    const [result] = await db.query(
+      `DELETE FROM paiement_tranches WHERE id = ? AND statut = 'En attente'`,
+      [trancheId]
+    );
+    return result.affectedRows > 0;
+  }
+
   static async deleteByClientId(clientId) {
     const [result] = await db.query(
       `DELETE FROM paiement_tranches WHERE client_id = ?`,

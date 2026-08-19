@@ -28,6 +28,8 @@ router.get('/renew-stats', authMiddleware.checkPermission('admin'), clientContro
 // Client versements routes
 router.post('/:id/versements', authMiddleware.checkPermission('edit'), clientController.addClientVersement);
 router.get('/:id/versements', clientController.getClientVersements);
+router.put('/:id/versements/:versementId', authMiddleware.checkPermission('edit'), clientController.updateClientVersement);
+router.delete('/:id/versements/:versementId', authMiddleware.checkPermission('edit'), clientController.deleteClientVersement);
 
 // Client tranches routes
 router.get('/:id/tranches', clientController.getClientTranches);

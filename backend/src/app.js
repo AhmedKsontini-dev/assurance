@@ -10,6 +10,7 @@ const caisseRoutes = require('./routes/caisseRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const sinistreRoutes = require('./routes/sinistreRoutes');
+const importRoutes = require('./routes/importRoutes');
 const errorHandler = require('./middlewares/errorHandler');
 const Caisse = require('./models/caisseModel');
 const ClientHistory = require('./models/clientHistoryModel');
@@ -47,6 +48,7 @@ app.use('/api/caisse', caisseRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/sinistres', sinistreRoutes);
+app.use('/api/clients/import', importRoutes);
 
 // 404 Route
 app.use((req, res, next) => {

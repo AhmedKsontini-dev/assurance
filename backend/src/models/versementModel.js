@@ -61,6 +61,22 @@ class Versement {
     );
     return result.affectedRows > 0;
   }
+
+  static async getById(id) {
+    const [rows] = await db.query(
+      `SELECT * FROM client_versements WHERE id = ?`,
+      [id]
+    );
+    return rows[0] || null;
+  }
+
+  static async delete(id) {
+    const [result] = await db.query(
+      `DELETE FROM client_versements WHERE id = ?`,
+      [id]
+    );
+    return result.affectedRows > 0;
+  }
 }
 
 // Ensure table exists

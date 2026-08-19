@@ -3,6 +3,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Eye, Edit, Trash2, RefreshCw, Filter, CheckCircle, XCircle, DollarSign, Plus, Printer, AlertCircle, MessageSquare, Send } from 'lucide-react';
 import RenewalModal from '../components/RenewalModal';
+import ImportClientsModal from '../components/ImportClientsModal';
 
 const Clients = () => {
   const { isAdmin } = useAuth();
@@ -10,6 +11,7 @@ const Clients = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [viewingClient, setViewingClient] = useState(null);
   const [viewingClientVersements, setViewingClientVersements] = useState([]);
@@ -415,7 +417,7 @@ const Clients = () => {
     }
   };
 
-  const handleEdit = (client) => {
+  const handleEdit = async (client) => {
     setEditingId(client.id);
     setFormData({
       police: client.police || '',
@@ -443,11 +445,68 @@ const Clients = () => {
       nb_tranches: client.nb_tranches || 0,
       dates_tranches: client.dates_tranches ? (typeof client.dates_tranches === 'string' ? JSON.parse(client.dates_tranches) : client.dates_tranches) : []
     });
+
+    try {
+      const res = await api.get(`/clients/${client.id}/versements`);
+      setViewingClientVersements(res.data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch client versements for edit:', err);
+      setViewingClientVersements([]);
+    }
+
     setShowForm(true);
     setDuplicateError(null);
     setDuplicateWarning(null);
     setOpenDropdownId(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleUpdateVersement = async (versementId, newAmount, newDate) => {
+    try {
+      await api.put(`/clients/${editingId}/versements/${versementId}`, {
+        montant: newAmount,
+        date_versement: newDate
+      });
+      // Refresh versements and client details
+      const res = await api.get(`/clients/${editingId}/versements`);
+      setViewingClientVersements(res.data.data || []);
+      const clientRes = await api.get(`/clients/${editingId}`);
+      if (clientRes.data.data) {
+        setFormData(prev => ({
+          ...prev,
+          montant_paye: clientRes.data.data.montant_paye,
+          payment_status: clientRes.data.data.payment_status
+        }));
+      }
+      setSuccessMessage('Paiement mis à jour avec succès');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      fetchClients();
+    } catch (err) {
+      alert('Erreur lors de la mise à jour du paiement');
+    }
+  };
+
+  const handleDeleteVersement = async (versementId) => {
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce paiement ? Cette action impactera la caisse.")) return;
+    try {
+      await api.delete(`/clients/${editingId}/versements/${versementId}`);
+      // Refresh versements and client details
+      const res = await api.get(`/clients/${editingId}/versements`);
+      setViewingClientVersements(res.data.data || []);
+      const clientRes = await api.get(`/clients/${editingId}`);
+      if (clientRes.data.data) {
+        setFormData(prev => ({
+          ...prev,
+          montant_paye: clientRes.data.data.montant_paye,
+          payment_status: clientRes.data.data.payment_status
+        }));
+      }
+      setSuccessMessage('Paiement supprimé avec succès');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      fetchClients();
+    } catch (err) {
+      alert('Erreur lors de la suppression du paiement');
+    }
   };
 
   const handleFilterChange = (field, value) => {
@@ -851,6 +910,9 @@ const Clients = () => {
           <button className="total-btn" onClick={() => setShowPrintModal(true)} style={{ borderColor: '#4caf50', color: '#4caf50' }}>
             <Printer size={18} style={{ marginRight: '5px' }} /> Imprimer
           </button>
+          <button className="total-btn" onClick={() => setShowImportModal(true)} style={{ borderColor: '#3b82f6', color: '#3b82f6' }}>
+            📥 Importer
+          </button>
           <button className="add-btn" onClick={() => {
             if (showForm && editingId) {
               setEditingId(null);
@@ -863,6 +925,16 @@ const Clients = () => {
           </button>
         </div>
       </div>
+
+      <ImportClientsModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={(msg) => {
+          setSuccessMessage(msg);
+          fetchClients();
+          setTimeout(() => setSuccessMessage(''), 5000);
+        }}
+      />
 
       {showForm && (
         <div className="modal-overlay">
@@ -1175,6 +1247,60 @@ const Clients = () => {
                         <option value="Paid">✅ Payé</option>
                       </select>
                     </div>
+                    {editingId && viewingClientVersements.length > 0 && (
+                      <div className="cf-span3" style={{ marginTop: '15px', padding: '15px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        <h4 style={{ margin: '0 0 15px 0', fontSize: '0.95rem', color: '#475569', fontWeight: '600' }}>
+                          💵 Historique des Paiements (Modifiables)
+                        </h4>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                          <thead>
+                            <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #e2e8f0' }}>
+                              <th style={{ padding: '8px', textAlign: 'left', color: '#1e293b' }}>Date</th>
+                              <th style={{ padding: '8px', textAlign: 'left', color: '#1e293b' }}>Montant (DT)</th>
+                              <th style={{ padding: '8px', textAlign: 'center', color: '#1e293b' }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {viewingClientVersements.map(v => (
+                              <tr key={v.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                <td style={{ padding: '8px' }}>
+                                  <input 
+                                    type="date" 
+                                    defaultValue={v.date_versement ? new Date(v.date_versement).toISOString().split('T')[0] : ''}
+                                    onBlur={(e) => {
+                                      const oldDate = v.date_versement ? new Date(v.date_versement).toISOString().split('T')[0] : '';
+                                      if (e.target.value !== oldDate && e.target.value) {
+                                        handleUpdateVersement(v.id, v.montant, e.target.value);
+                                      }
+                                    }}
+                                    style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '100%' }}
+                                  />
+                                </td>
+                                <td style={{ padding: '8px' }}>
+                                  <input 
+                                    type="number" 
+                                    step="0.01"
+                                    defaultValue={v.montant}
+                                    onBlur={(e) => {
+                                      if (parseFloat(e.target.value) !== parseFloat(v.montant) && e.target.value) {
+                                        handleUpdateVersement(v.id, e.target.value, v.date_versement ? new Date(v.date_versement).toISOString().split('T')[0] : '');
+                                      }
+                                    }}
+                                    style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '100px' }}
+                                  />
+                                </td>
+                                <td style={{ padding: '8px', textAlign: 'center' }}>
+                                  <button type="button" onClick={() => handleDeleteVersement(v.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }} title="Supprimer ce paiement">
+                                    <Trash2 size={18} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        <p style={{ margin: '10px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>* La modification de la date ou du montant impacte directement la caisse de la journée correspondante.</p>
+                      </div>
+                    )}
                     <div className="form-group cf-span3">
                       <label>Nombre de Tranches</label>
                       <input

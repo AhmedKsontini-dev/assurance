@@ -1,33 +1,33 @@
 ============================================ 
 Assurance App Launcher - Startup Log 
-Started: 14/07/2026 13:48:27,86 
+Started: 17/08/2026 15:37:08,91 
 ============================================ 
  
-[13:48:27,89] Starting WAMP Server... 
-[13:48:27,89] Found WAMP at: D:\WAMP\wampmanager.exe 
-[13:48:28,15] WAMP launched successfully 
-[13:48:28,15] Waiting for WAMP to initialize... 
-[13:48:43,16] Verifying WAMP services... 
-[13:48:48,10] WAMP initialization complete 
+[15:37:08,94] Starting WAMP Server... 
+[15:37:08,94] Found WAMP at: D:\WAMP\wampmanager.exe 
+[15:37:09,10] WAMP launched successfully 
+[15:37:09,10] Waiting for WAMP to initialize... 
+[15:37:24,22] Verifying WAMP services... 
+[15:37:29,11] WAMP initialization complete 
  
-[13:48:48,11] Starting Backend Server... 
-[13:48:48,13] Backend server started in minimized window 
-[13:48:48,14] Waiting for backend to initialize... 
-[13:48:53,12] Backend initialization complete 
+[15:37:29,12] Starting Backend Server... 
+[15:37:29,16] Backend server started in minimized window 
+[15:37:29,16] Waiting for backend to initialize... 
+[15:37:34,16] Backend initialization complete 
  
-[13:48:53,14] Starting Frontend... 
-[13:48:53,17] Frontend started in minimized window 
-[13:48:53,17] Waiting for frontend to initialize... 
-[13:48:58,11] Frontend initialization complete 
+[15:37:34,17] Starting Frontend... 
+[15:37:34,20] Frontend started in minimized window 
+[15:37:34,20] Waiting for frontend to initialize... 
+[15:37:39,22] Frontend initialization complete 
  
-[13:48:58,12] All services started successfully 
+[15:37:39,23] All services started successfully 
  
-[13:48:58,13] Services running: 
+[15:37:39,25] Services running: 
   - WAMP Server (Apache + MySQL) 
   - Backend Server (Node.js) 
   - Frontend (React/Vite) 
  
-[13:48:58,16] Access URLs: 
+[15:37:39,29] Access URLs: 
   - Frontend: http://localhost:5173 
   - Backend: http://localhost:3000 (check backend for actual port) 
 ============================================ 
