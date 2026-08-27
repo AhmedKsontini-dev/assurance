@@ -1,5 +1,6 @@
 const express = require('express');
 const clientController = require('../controllers/clientController');
+const noteController = require('../controllers/noteController');
 const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = express.Router();
@@ -36,8 +37,8 @@ router.get('/:id/tranches', clientController.getClientTranches);
 router.post('/:id/tranches/:trancheId/pay', authMiddleware.checkPermission('edit'), clientController.payTranche);
 
 // Client notes routes
-router.post('/:id/notes', clientController.addClientNote);
-router.get('/:id/notes', clientController.getClientNotes);
+router.post('/:clientId/notes', noteController.addNote);
+router.get('/:clientId/notes', noteController.getNotes);
 
 // Client history routes
 router.get('/:id/history', clientController.getClientHistory);

@@ -34,6 +34,12 @@ const Sidebar = ({ isCollapsed, isMobileOpen, toggleSidebar }) => {
             </Link>
           </li>
           <li>
+            <Link to="/credits" className={isActive('/credits')} title={isCollapsed ? "Cahier de Crédit" : ""}>
+              <span className="nav-icon">📖</span>
+              <span className="nav-text">Cahier de Crédit</span>
+            </Link>
+          </li>
+          <li>
             <Link to="/sinistres" className={isActive('/sinistres')} title={isCollapsed ? "Gestion des Sinistres" : ""}>
               <span className="nav-icon">🚗</span>
               <span className="nav-text">Gestion des Sinistres</span>

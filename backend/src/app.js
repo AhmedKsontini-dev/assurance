@@ -11,6 +11,7 @@ const eventRoutes = require('./routes/eventRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const sinistreRoutes = require('./routes/sinistreRoutes');
 const importRoutes = require('./routes/importRoutes');
+const creditRoutes = require('./routes/creditRoutes');
 const errorHandler = require('./middlewares/errorHandler');
 const Caisse = require('./models/caisseModel');
 const ClientHistory = require('./models/clientHistoryModel');
@@ -49,6 +50,7 @@ app.use('/api/events', eventRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/sinistres', sinistreRoutes);
 app.use('/api/clients/import', importRoutes);
+app.use('/api/credits', creditRoutes);
 
 // 404 Route
 app.use((req, res, next) => {

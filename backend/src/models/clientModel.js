@@ -87,8 +87,8 @@ class Client {
         reduction, rc, papier, usage_vehicle, immatriculation, 
         date_effet, date_expiration, total, created_by,
         payment_status, payment_date, payment_method, category,
-        montant_paye, reste_a_payer, date_prochain_paiement, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`,
+        montant_paye, reste_a_payer, date_prochain_paiement, created_at, is_credit
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?)`,
       [
         police || null,
         societaire || null,
@@ -112,7 +112,8 @@ class Client {
         toNum(montant_paye) || 0.00,
         toNum(total) - (toNum(montant_paye) || 0.00),
         toDate(date_prochain_paiement),
-        toDate(created_at)
+        toDate(created_at),
+        (toNum(total) - (toNum(montant_paye) || 0.00) > 0) ? 1 : 0
       ]
     );
 

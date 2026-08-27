@@ -12,6 +12,7 @@ import Clients from './pages/Clients';
 import Users from './pages/Users';
 import Reports from './pages/Reports';
 import EmployeeDetails from './pages/EmployeeDetails';
+import CreditBook from './pages/CreditBook';
 import Expenses from './pages/Expenses';
 import Alerts from './pages/Alerts';
 import CalendarPage from './pages/CalendarPage';
@@ -105,6 +106,7 @@ function App() {
             <Route element={<ProtectedRoute />}>
               <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
               <Route path="/clients" element={<AppLayout><Clients /></AppLayout>} />
+              <Route path="/credits" element={<AppLayout><CreditBook /></AppLayout>} />
               <Route path="/alerts" element={<AppLayout><Alerts /></AppLayout>} />
               <Route path="/calendar" element={<AppLayout><CalendarPage /></AppLayout>} />
               <Route path="/sinistres" element={<AppLayout><Sinistres /></AppLayout>} />
