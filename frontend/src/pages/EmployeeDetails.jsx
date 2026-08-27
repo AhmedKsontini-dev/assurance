@@ -67,6 +67,27 @@ const EmployeeDetails = () => {
   const currentClients = filteredClients.slice(indexOfFirstClient, indexOfLastClient);
   const totalPages = Math.ceil(filteredClients.length / clientsPerPage);
 
+  const renderFinancialDetails = (statData, isAccent = false) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', margin: '15px 0' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.95rem', color: isAccent ? '#f8fafc' : '#64748b' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>💵 Espèce</span>
+        <strong style={{ color: isAccent ? 'white' : '#1e293b' }}>{parseFloat(statData.espece || 0).toLocaleString('fr-FR')} DT</strong>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.95rem', color: isAccent ? '#f8fafc' : '#64748b' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>🧾 Chèque</span>
+        <strong style={{ color: isAccent ? 'white' : '#1e293b' }}>{parseFloat(statData.cheque || 0).toLocaleString('fr-FR')} DT</strong>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.95rem', color: isAccent ? '#f8fafc' : '#64748b' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>📜 Kembyela</span>
+        <strong style={{ color: isAccent ? 'white' : '#1e293b' }}>{parseFloat(statData.kembyela || 0).toLocaleString('fr-FR')} DT</strong>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '1.2rem', fontWeight: '800', color: isAccent ? 'white' : 'var(--primary-color)', marginTop: '8px', paddingTop: '10px', borderTop: isAccent ? '1px dashed rgba(255,255,255,0.4)' : '1px dashed #cbd5e1' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>💰 Total</span>
+        <span>{parseFloat(statData.amount || 0).toLocaleString('fr-FR')} DT</span>
+      </div>
+    </div>
+  );
+
   return (
     <div className="page-content">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -98,31 +119,31 @@ const EmployeeDetails = () => {
       <div className="stats-cards" style={{ gridTemplateColumns: `repeat(${data.financials.custom ? 5 : 4}, 1fr)` }}>
         <div className="stat-card">
           <h3>Aujourd'hui</h3>
-          <p className="stat-value">{parseFloat(data.financials.today.amount).toLocaleString()} TND</p>
+          {renderFinancialDetails(data.financials.today)}
           <span className="badge-count">{data.financials.today.count} clients</span>
         </div>
         
         {data.financials.custom && (
           <div className="stat-card" style={{ border: '2px solid var(--primary-color)', background: '#f0f7ff' }}>
             <h3 style={{ color: 'var(--primary-color)' }}>Le {new Date(statsDate).toLocaleDateString()}</h3>
-            <p className="stat-value">{parseFloat(data.financials.custom.amount).toLocaleString()} TND</p>
+            {renderFinancialDetails(data.financials.custom)}
             <span className="badge-count" style={{ background: 'var(--primary-color)' }}>{data.financials.custom.count} clients</span>
           </div>
         )}
 
         <div className="stat-card">
           <h3>Cette Semaine</h3>
-          <p className="stat-value">{parseFloat(data.financials.week.amount).toLocaleString()} TND</p>
+          {renderFinancialDetails(data.financials.week)}
           <span className="badge-count">{data.financials.week.count} clients</span>
         </div>
         <div className="stat-card">
           <h3>Ce Mois</h3>
-          <p className="stat-value">{parseFloat(data.financials.month.amount).toLocaleString()} TND</p>
+          {renderFinancialDetails(data.financials.month)}
           <span className="badge-count">{data.financials.month.count} clients</span>
         </div>
         <div className="stat-card accent">
           <h3>Global</h3>
-          <p className="stat-value">{parseFloat(data.financials.overall.amount).toLocaleString()} TND</p>
+          {renderFinancialDetails(data.financials.overall, true)}
           <span className="badge-count">{data.financials.overall.count} clients</span>
         </div>
       </div>

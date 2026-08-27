@@ -5,6 +5,7 @@ const Note = require('../models/noteModel');
 const logger = require('../utils/logger');
 const ClientHistory = require('../models/clientHistoryModel');
 const Tranche = require('../models/trancheModel');
+const db = require('../config/db');
 
 exports.getAllClients = async (req, res, next) => {
   try {

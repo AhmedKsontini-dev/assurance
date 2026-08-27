@@ -106,61 +106,84 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
       return parseFloat(rows[0].net || 0);
     };
 
-    // 2. Financial Summary
-    // Today: client contracts created today + caisse net of today (ONLY card affected by caisse)
+    // 2. Financial Summary — caisse based on date_versement (actual payment date)
+    // Today: payments actually received today
     const [todayClientStats] = await db.query(
-      'SELECT COUNT(*) as count FROM clients WHERE created_by = ? AND DATE(created_at) = CURDATE() AND is_deleted = 0',
+      `SELECT COUNT(DISTINCT v.client_id) as count 
+       FROM client_versements v JOIN clients c ON c.id = v.client_id
+       WHERE v.user_id = ? AND DATE(v.date_versement) = CURDATE() AND v.annule = 0 AND c.is_deleted = 0`,
       [userId]
     );
     const [todayAmountStats] = await db.query(
-      `SELECT COALESCE(SUM(v.montant), 0) as amount 
+      `SELECT COALESCE(SUM(v.montant), 0) as amount,
+       COALESCE(SUM(CASE WHEN LOWER(v.methode_paiement) NOT LIKE '%ch_que%' AND LOWER(v.methode_paiement) NOT LIKE '%kembyela%' THEN v.montant ELSE 0 END), 0) as espece,
+       COALESCE(SUM(CASE WHEN LOWER(v.methode_paiement) LIKE '%kembyela%' THEN v.montant ELSE 0 END), 0) as kembyela,
+       COALESCE(SUM(CASE WHEN LOWER(v.methode_paiement) LIKE '%ch_que%' THEN v.montant ELSE 0 END), 0) as cheque
        FROM client_versements v JOIN clients c ON c.id = v.client_id
        WHERE v.user_id = ? AND DATE(v.date_versement) = CURDATE() AND v.annule = 0 AND c.is_deleted = 0`,
       [userId]
     );
     const todayCaisseNet = await getTodayCaisseNet();
 
-    // Week: client contracts only — NOT affected by caisse
+    // Week: payments received this week
     const [weekClientStats] = await db.query(
-      'SELECT COUNT(*) as count FROM clients WHERE created_by = ? AND YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1) AND is_deleted = 0',
+      `SELECT COUNT(DISTINCT v.client_id) as count 
+       FROM client_versements v JOIN clients c ON c.id = v.client_id
+       WHERE v.user_id = ? AND YEARWEEK(v.date_versement, 1) = YEARWEEK(CURDATE(), 1) AND v.annule = 0 AND c.is_deleted = 0`,
       [userId]
     );
     const [weekAmountStats] = await db.query(
-      `SELECT COALESCE(SUM(v.montant), 0) as amount 
+      `SELECT COALESCE(SUM(v.montant), 0) as amount,
+       COALESCE(SUM(CASE WHEN LOWER(v.methode_paiement) NOT LIKE '%ch_que%' AND LOWER(v.methode_paiement) NOT LIKE '%kembyela%' THEN v.montant ELSE 0 END), 0) as espece,
+       COALESCE(SUM(CASE WHEN LOWER(v.methode_paiement) LIKE '%kembyela%' THEN v.montant ELSE 0 END), 0) as kembyela,
+       COALESCE(SUM(CASE WHEN LOWER(v.methode_paiement) LIKE '%ch_que%' THEN v.montant ELSE 0 END), 0) as cheque
        FROM client_versements v JOIN clients c ON c.id = v.client_id
        WHERE v.user_id = ? AND YEARWEEK(v.date_versement, 1) = YEARWEEK(CURDATE(), 1) AND v.annule = 0 AND c.is_deleted = 0`,
       [userId]
     );
 
-    // Month: client contracts only — NOT affected by caisse
+    // Month: payments received this month
     const [monthClientStats] = await db.query(
-      'SELECT COUNT(*) as count FROM clients WHERE created_by = ? AND MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE()) AND is_deleted = 0',
+      `SELECT COUNT(DISTINCT v.client_id) as count 
+       FROM client_versements v JOIN clients c ON c.id = v.client_id
+       WHERE v.user_id = ? AND MONTH(v.date_versement) = MONTH(CURDATE()) AND YEAR(v.date_versement) = YEAR(CURDATE()) AND v.annule = 0 AND c.is_deleted = 0`,
       [userId]
     );
     const [monthAmountStats] = await db.query(
-      `SELECT COALESCE(SUM(v.montant), 0) as amount 
+      `SELECT COALESCE(SUM(v.montant), 0) as amount,
+       COALESCE(SUM(CASE WHEN LOWER(v.methode_paiement) NOT LIKE '%ch_que%' AND LOWER(v.methode_paiement) NOT LIKE '%kembyela%' THEN v.montant ELSE 0 END), 0) as espece,
+       COALESCE(SUM(CASE WHEN LOWER(v.methode_paiement) LIKE '%kembyela%' THEN v.montant ELSE 0 END), 0) as kembyela,
+       COALESCE(SUM(CASE WHEN LOWER(v.methode_paiement) LIKE '%ch_que%' THEN v.montant ELSE 0 END), 0) as cheque
        FROM client_versements v JOIN clients c ON c.id = v.client_id
        WHERE v.user_id = ? AND MONTH(v.date_versement) = MONTH(CURDATE()) AND YEAR(v.date_versement) = YEAR(CURDATE()) AND v.annule = 0 AND c.is_deleted = 0`,
       [userId]
     );
 
-    // Overall: client contracts only — NOT affected by caisse
+    // Overall: clients who paid overall — NOT affected by caisse
     const [overallClientStats] = await db.query(
       `SELECT 
-        (SELECT COUNT(*) FROM clients WHERE created_by = ? AND is_deleted = 0) as count,
-        COALESCE((SELECT SUM(v.montant) FROM client_versements v JOIN clients c ON c.id = v.client_id WHERE v.user_id = ? AND v.annule = 0 AND c.is_deleted = 0), 0) as amount`,
-      [userId, userId]
+        (SELECT COUNT(DISTINCT v.client_id) FROM client_versements v JOIN clients c ON c.id = v.client_id WHERE v.user_id = ? AND v.annule = 0 AND c.is_deleted = 0) as count,
+        COALESCE((SELECT SUM(v.montant) FROM client_versements v JOIN clients c ON c.id = v.client_id WHERE v.user_id = ? AND v.annule = 0 AND c.is_deleted = 0), 0) as amount,
+        COALESCE((SELECT SUM(CASE WHEN LOWER(v.methode_paiement) NOT LIKE '%ch_que%' AND LOWER(v.methode_paiement) NOT LIKE '%kembyela%' THEN v.montant ELSE 0 END) FROM client_versements v JOIN clients c ON c.id = v.client_id WHERE v.user_id = ? AND v.annule = 0 AND c.is_deleted = 0), 0) as espece,
+        COALESCE((SELECT SUM(CASE WHEN LOWER(v.methode_paiement) LIKE '%kembyela%' THEN v.montant ELSE 0 END) FROM client_versements v JOIN clients c ON c.id = v.client_id WHERE v.user_id = ? AND v.annule = 0 AND c.is_deleted = 0), 0) as kembyela,
+        COALESCE((SELECT SUM(CASE WHEN LOWER(v.methode_paiement) LIKE '%ch_que%' THEN v.montant ELSE 0 END) FROM client_versements v JOIN clients c ON c.id = v.client_id WHERE v.user_id = ? AND v.annule = 0 AND c.is_deleted = 0), 0) as cheque`,
+      [userId, userId, userId, userId, userId]
     );
 
-    // Custom Date Stats: includes caisse net for that specific day
+    // Custom Date Stats: payments received on a specific day + caisse net for that day
     let customDateStats = null;
     if (statsDate) {
       const [customRows] = await db.query(
-        'SELECT COUNT(*) as count FROM clients WHERE created_by = ? AND DATE(created_at) = ? AND is_deleted = 0',
+        `SELECT COUNT(DISTINCT v.client_id) as count 
+         FROM client_versements v JOIN clients c ON c.id = v.client_id
+         WHERE v.user_id = ? AND DATE(v.date_versement) = ? AND v.annule = 0 AND c.is_deleted = 0`,
         [userId, statsDate]
       );
       const [customAmountStats] = await db.query(
-        `SELECT COALESCE(SUM(v.montant), 0) as amount 
+        `SELECT COALESCE(SUM(v.montant), 0) as amount,
+         COALESCE(SUM(CASE WHEN LOWER(v.methode_paiement) NOT LIKE '%ch_que%' AND LOWER(v.methode_paiement) NOT LIKE '%kembyela%' THEN v.montant ELSE 0 END), 0) as espece,
+         COALESCE(SUM(CASE WHEN LOWER(v.methode_paiement) LIKE '%kembyela%' THEN v.montant ELSE 0 END), 0) as kembyela,
+         COALESCE(SUM(CASE WHEN LOWER(v.methode_paiement) LIKE '%ch_que%' THEN v.montant ELSE 0 END), 0) as cheque
          FROM client_versements v JOIN clients c ON c.id = v.client_id
          WHERE v.user_id = ? AND DATE(v.date_versement) = ? AND v.annule = 0 AND c.is_deleted = 0`,
         [userId, statsDate]
@@ -169,7 +192,10 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
 
       customDateStats = {
         count: customRows[0].count,
-        amount: parseFloat(customAmountStats[0].amount) + customCaisseNet
+        amount: parseFloat(customAmountStats[0].amount) + customCaisseNet,
+        espece: parseFloat(customAmountStats[0].espece) + customCaisseNet,
+        kembyela: parseFloat(customAmountStats[0].kembyela),
+        cheque: parseFloat(customAmountStats[0].cheque)
       };
     }
 
@@ -269,23 +295,35 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
       data: {
         employee: userRows[0],
         financials: {
-          // "Aujourd'hui" = client contracts of the day + caisse net of the day
+          // "Aujourd'hui" = payments actually received today + caisse net of today
           today: {
             count: todayClientStats[0].count,
-            amount: parseFloat(todayAmountStats[0].amount) + todayCaisseNet
+            amount: parseFloat(todayAmountStats[0].amount) + todayCaisseNet,
+            espece: parseFloat(todayAmountStats[0].espece) + todayCaisseNet,
+            kembyela: parseFloat(todayAmountStats[0].kembyela),
+            cheque: parseFloat(todayAmountStats[0].cheque)
           },
-          // "Cette semaine", "Ce mois", "Globale" = client contracts only, caisse-independent
+          // "Cette semaine", "Ce mois", "Globale" = payments received in that period
           week: {
             count: weekClientStats[0].count,
-            amount: parseFloat(weekAmountStats[0].amount)
+            amount: parseFloat(weekAmountStats[0].amount),
+            espece: parseFloat(weekAmountStats[0].espece),
+            kembyela: parseFloat(weekAmountStats[0].kembyela),
+            cheque: parseFloat(weekAmountStats[0].cheque)
           },
           month: {
             count: monthClientStats[0].count,
-            amount: parseFloat(monthAmountStats[0].amount)
+            amount: parseFloat(monthAmountStats[0].amount),
+            espece: parseFloat(monthAmountStats[0].espece),
+            kembyela: parseFloat(monthAmountStats[0].kembyela),
+            cheque: parseFloat(monthAmountStats[0].cheque)
           },
           overall: {
             count: overallClientStats[0].count,
-            amount: parseFloat(overallClientStats[0].amount)
+            amount: parseFloat(overallClientStats[0].amount),
+            espece: parseFloat(overallClientStats[0].espece),
+            kembyela: parseFloat(overallClientStats[0].kembyela),
+            cheque: parseFloat(overallClientStats[0].cheque)
           },
           custom: customDateStats
         },
