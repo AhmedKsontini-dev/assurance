@@ -59,7 +59,7 @@ exports.createClient = async (req, res, next) => {
 
     // Create initial versement if montant_paye > 0
     if (req.body.montant_paye && parseFloat(req.body.montant_paye) > 0) {
-      let transactionDate = req.body.date_paiement || new Date().toISOString().split('T')[0];
+      let transactionDate = req.body.created_at || req.body.date_paiement || new Date().toISOString().split('T')[0];
       if (transactionDate.includes('T')) {
         transactionDate = transactionDate.split('T')[0];
       }
@@ -127,6 +127,28 @@ exports.updateClient = async (req, res, next) => {
 
     // Fetch old client to detect montant_paye increase
     const oldClient = await Client.getById(req.params.id);
+
+    // Handle created_at change to update versements dates (pour synchroniser la caisse)
+    if (req.body.created_at !== undefined) {
+      let newCreatedAt = req.body.created_at;
+      if (newCreatedAt && newCreatedAt.includes('T')) {
+        newCreatedAt = newCreatedAt.split('T')[0];
+      }
+
+      let oldCreatedAt = oldClient.created_at;
+      if (oldCreatedAt) {
+        if (oldCreatedAt instanceof Date) {
+          oldCreatedAt = oldCreatedAt.toISOString().split('T')[0];
+        } else if (typeof oldCreatedAt === 'string' && oldCreatedAt.includes('T')) {
+          oldCreatedAt = oldCreatedAt.split('T')[0];
+        }
+      }
+
+      if (oldCreatedAt && newCreatedAt && oldCreatedAt !== newCreatedAt) {
+        // Change all versements that were made on the old created_at date
+        await Versement.updateDateByOldDate(req.params.id, oldCreatedAt, newCreatedAt);
+      }
+    }
     
     // Handle new partial payment from frontend
     let montantVerseAujourdHui = req.body.montant_verse_aujourd_hui;
@@ -641,7 +663,12 @@ async function recalculateNextPaymentDate(clientId) {
     }
 
     if (nextDate) {
-      const formatted = new Date(nextDate).toISOString().split('T')[0];
+      let formatted = nextDate;
+      if (nextDate instanceof Date) {
+        formatted = new Date(nextDate).toISOString().split('T')[0];
+      } else if (typeof nextDate === 'string' && nextDate.includes('T')) {
+        formatted = nextDate.split('T')[0];
+      }
       await Client.update(clientId, { date_prochain_paiement: formatted });
       return formatted;
     } else {
